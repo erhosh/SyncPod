@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0a0a0b">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -115,7 +116,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     position:relative; width:100%; flex:1 1 auto; min-height:0; background:#000;
     border-radius:12px; overflow:hidden; border:1px solid var(--border);
   }
-  .video-frame-box video{ object-fit:contain; touch-action:none; transform-origin:center center; will-change:transform; }
+  .video-frame-box iframe, .video-frame-box #ytPlayer{ position:absolute; inset:0; width:100%; height:100%; border:0; background:#000; }
   .video-frame-box .video-empty{
     position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
     color:var(--text-tertiary); font-size:12px; text-align:center; padding:16px; line-height:1.7;
@@ -301,15 +302,6 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   .play-fab.dragging{transition:none; cursor:grabbing; box-shadow:0 4px 18px rgba(0,0,0,.55);}
   .play-fab.idle{ opacity:.32; }
 
-  .zoom-lock-btn{
-    position:fixed; z-index:64; width:38px; height:38px; border-radius:50%;
-    background:var(--panel-2); border:1px solid var(--border); color:var(--text);
-    font-size:15px; display:none; align-items:center; justify-content:center;
-    box-shadow:0 2px 10px rgba(0,0,0,.4); cursor:pointer; transition:opacity .4s ease;
-  }
-  .zoom-lock-btn.show{ display:flex; }
-  .zoom-lock-btn.active{ background:var(--accent); color:#052e18; border-color:var(--accent); }
-  .zoom-lock-btn.idle{ opacity:.32; }
 
   .menu-fab{
     flex:0 0 auto; width:44px; height:44px; border-radius:50%; background:var(--panel-2); border:1px solid var(--border);
@@ -397,6 +389,16 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   .save-playlist-btn{
     width:100%; margin-top:12px; background:var(--accent-dim); border:1px solid var(--accent); color:var(--accent-strong);
     border-radius:11px; padding:12px; font-weight:700; font-size:13px; cursor:pointer;
+  }
+
+  .yt-add-row{display:flex; gap:8px; margin-bottom:9px;}
+  .yt-add-row input{
+    flex:1 1 auto; min-width:0; background:var(--panel-2); border:1px solid var(--border); border-radius:11px;
+    padding:12px 13px; color:var(--text); font-size:13px; font-family:var(--sans);
+  }
+  .yt-add-row button{
+    flex:0 0 auto; background:var(--accent-dim); border:1px solid var(--accent); color:var(--accent-strong);
+    border-radius:11px; padding:0 18px; font-weight:700; font-size:13px; cursor:pointer;
   }
 
   /* Word lookup sheet */
@@ -507,8 +509,8 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
 <div class="stage" id="stage">
   <div class="video-wrap" id="videoWrap">
     <div class="video-frame-box">
-      <video id="localVideo" playsinline style="position:absolute; inset:0; width:100%; height:100%; background:#000;"></video>
-      <div class="video-empty" id="videoEmpty">☰ menüsünden bir video dosyası ve söz (.lrc) dosyası ekle.</div>
+      <div id="ytPlayer"></div>
+      <div class="video-empty" id="videoEmpty">☰ menüsünden bir YouTube linki ve söz (.lrc) dosyası ekle.</div>
     </div>
   </div>
   <div class="splitter" id="videoSplitter"><div class="splitter-grip"></div></div>
@@ -550,7 +552,6 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
 </div>
 
 <button class="play-fab" id="playFab">▶</button>
-<button class="zoom-lock-btn" id="zoomLockBtn" title="Yatay kaydırmayı kilitle">🔓</button>
 
 <audio id="audio" preload="auto"></audio>
 
@@ -572,13 +573,14 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     <div id="playlistBody"></div>
     <button class="save-playlist-btn" id="savePlaylistBtn">💾 Listeyi Kaydet</button>
 
-    <div class="set-label" style="margin-top:16px;">Video Listesi</div>
-    <button class="menu-row" id="addVideoBtn">🎬 Video Dosyaları Ekle</button>
+    <div class="set-label" style="margin-top:16px;">Video Listesi (YouTube)</div>
+    <div class="yt-add-row">
+      <input type="url" id="ytUrlInput" placeholder="YouTube linkini yapıştır" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button id="addYtBtn">Ekle</button>
+    </div>
     <button class="menu-row" id="addVideoLrcMultiBtn">📝 Video Sözleri Ekle</button>
-    <div class="lib-hint" style="margin-top:0;">Aynı isimli video ve .lrc dosyaları otomatik eşleşir. Birden çok dosya seçebilirsin.</div>
-    <input type="file" id="videoMultiInput" accept="video/*,.mp4,.m4v,.mkv,.mov,.avi,.webm,.wmv,.flv,.3gp,.3g2,.ts,.mts,.m2ts,.ogv,application/octet-stream" multiple hidden>
+    <div class="lib-hint" style="margin-top:0;">Link ekledikten sonra söz (.lrc) dosyasını ekle. Dosya adı videonun başlığıyla aynıysa (veya adında [video kimliği] geçiyorsa) otomatik eşleşir; eşleşmezse listedeki kayda dokunup dosyayı seçebilirsin.</div>
     <input type="file" id="videoLrcMultiInput" accept=".lrc,.txt" multiple hidden>
-    <input type="file" id="relinkVideoInput" accept="video/*,.mp4,.m4v,.mkv,.mov,.avi,.webm,.wmv,.flv,.3gp,.3g2,.ts,.mts,.m2ts,.ogv,application/octet-stream" hidden>
     <input type="file" id="relinkVideoLrcInput" accept=".lrc,.txt" hidden>
     <div id="videoPlaylistBody"></div>
     <button class="save-playlist-btn" id="saveVideoPlaylistBtn">💾 Video Listesini Kaydet</button>
@@ -637,7 +639,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
       </div>
     </div>
 
-    <div class="set-label" style="margin-top:6px;">Ses Dengeleyici (EQ)</div>
+    <div class="set-label" style="margin-top:6px;">Ses Dengeleyici (EQ) — yalnızca Podcast modunda</div>
     <div class="set-group">
       <div class="set-options" id="eqOptions">
         <button class="set-opt active" data-eq="off">Kapalı</button>
@@ -852,8 +854,156 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   let mode = 'podcast'; // 'podcast' | 'video'
   let videoTitle = '', videoLrcText = '';
   let videoReady = false;
-  const localVideo = document.getElementById('localVideo');
-  let videoZoomReset = null; // set once setupVideoZoom() runs; called when a new video loads
+  // ================= YouTube player (Video mode's source) =================
+  // Video mode now plays a YouTube video through the IFrame Player API instead of a local
+  // file. The LRC side is untouched (still local .lrc files). The unified media functions
+  // below (getCurrentTime / mediaSeek / isPaused / ...) route to this player, so every
+  // shared feature — tap-line-to-seek, word lookup, selection, transport buttons — keeps
+  // working exactly as before. YouTube has no 'timeupdate' event, so a small poll
+  // (ytTick) drives the seek bar and the active-line highlight.
+  const YT_STATE = {UNSTARTED:-1, ENDED:0, PLAYING:1, PAUSED:2, BUFFERING:3, CUED:5};
+  let ytPlayer = null, ytReady = false, ytApiRequested = false, ytCreating = null;
+  let ytReadyQueue = [];
+  let ytCurrentId = null;
+  let ytIntendPlay = false;   // true while the user/app wants playback running
+  let ytLastState = -2;
+  let ytRateTimer = null;
+
+  function ytWhenReady(fn){ if(ytReady) fn(); else ytReadyQueue.push(fn); }
+
+  function ytApiLoad(){
+    if(window.YT && window.YT.Player) return Promise.resolve();
+    return new Promise((resolve, reject)=>{
+      const prev = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = function(){
+        if(typeof prev === 'function'){ try{ prev(); }catch(err){} }
+        resolve();
+      };
+      if(!ytApiRequested){
+        ytApiRequested = true;
+        const sc = document.createElement('script');
+        sc.src = 'https://www.youtube.com/iframe_api';
+        sc.onerror = ()=>{ ytApiRequested = false; reject(new Error('YouTube API yüklenemedi')); };
+        document.head.appendChild(sc);
+      }
+    });
+  }
+
+  function ytEnsurePlayer(initialId){
+    if(ytReady) return Promise.resolve();
+    if(ytCreating) return ytCreating;
+    ytCreating = ytApiLoad().then(()=> new Promise(resolve=>{
+      ytReadyQueue.unshift(resolve);
+      const vars = {playsinline:1, controls:0, disablekb:1, fs:0, rel:0, iv_load_policy:3, modestbranding:1, enablejsapi:1};
+      if(/^https?:$/.test(location.protocol)) vars.origin = location.origin;
+      ytPlayer = new YT.Player('ytPlayer', {
+        videoId: initialId,
+        playerVars: vars,
+        events: { onReady: ytOnReady, onStateChange: ytOnState, onError: ytOnError }
+      });
+    })).catch(err=>{
+      ytCreating = null;
+      showToast('YouTube oynatıcısı yüklenemedi. Bağlantını kontrol et.');
+      throw err;
+    });
+    return ytCreating;
+  }
+
+  function ytOnReady(){
+    ytReady = true;
+    try{ ytPlayer.setPlaybackRate(videoSpeed); }catch(err){}
+    const q = ytReadyQueue; ytReadyQueue = [];
+    q.forEach(fn=>{ try{ fn(); }catch(err){} });
+  }
+
+  function ytLoad(videoId, autoPlay){
+    ytCurrentId = videoId;
+    ytEnsurePlayer(videoId).then(()=>{
+      if(ytCurrentId !== videoId) return; // a newer pick superseded this one
+      let cur = '';
+      try{ cur = (ytPlayer.getVideoData() || {}).video_id || ''; }catch(err){}
+      if(cur !== videoId){
+        if(autoPlay) ytPlayer.loadVideoById(videoId); else ytPlayer.cueVideoById(videoId);
+      }else if(autoPlay){
+        ytPlayer.playVideo();
+      }
+    }).catch(()=>{});
+  }
+
+  // seekTo() on a not-yet-started (cued) video would also start it — a paused/idle player
+  // must stay paused when you just scrub or tap ⟲, so undo that unless playback was wanted.
+  function ytSeek(t, allowAhead){
+    if(!ytReady) return;
+    let st = -1;
+    try{ st = ytPlayer.getPlayerState(); }catch(err){}
+    try{ ytPlayer.seekTo(t, allowAhead !== false); }catch(err){}
+    if(st === YT_STATE.CUED || st === YT_STATE.UNSTARTED){
+      setTimeout(()=>{ if(!ytIntendPlay){ try{ ytPlayer.pauseVideo(); }catch(err){} } }, 80);
+    }
+  }
+
+  function ytSyncRate(){
+    try{
+      const a = ytPlayer.getPlaybackRate();
+      if(a && Math.abs(a - videoSpeed) > 0.001) ytPlayer.setPlaybackRate(videoSpeed);
+    }catch(err){}
+  }
+
+  function ytOnState(e){
+    const st = e.data;
+    if(!isVideoMode()){
+      // Podcast mode is active — the video must never keep playing invisibly underneath.
+      if(st === YT_STATE.PLAYING){ try{ ytPlayer.pauseVideo(); }catch(err){} }
+      ytLastState = st;
+      return;
+    }
+    if(st === YT_STATE.PLAYING || st === YT_STATE.BUFFERING){
+      ytIntendPlay = true;
+      playFab.textContent = '❚❚';
+      if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+      if(st === YT_STATE.PLAYING){
+        if(ytLastState !== YT_STATE.PLAYING && ytLastState !== YT_STATE.BUFFERING){
+          clearTimeout(userScrollDebounce); userScrolling = false; scrollToActiveLine(true);
+        }
+        ytSyncRate();
+      }
+    }else if(st === YT_STATE.PAUSED || st === YT_STATE.ENDED || st === YT_STATE.CUED){
+      if(st !== YT_STATE.CUED) ytIntendPlay = false;
+      playFab.textContent = '▶';
+      if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+      if(st === YT_STATE.ENDED && videoLoopMode !== 'off'){
+        ytSeek(0, true);
+        ytIntendPlay = true;
+        try{ ytPlayer.playVideo(); }catch(err){}
+      }
+    }
+    ytLastState = st;
+  }
+
+  function ytOnError(e){
+    const c = e && e.data;
+    let msg;
+    if(c === 101 || c === 150 || c === 153) msg = 'Bu video gömülü oynatmaya izin vermiyor.';
+    else if(c === 100) msg = 'Video bulunamadı ya da gizli.';
+    else if(c === 2) msg = 'Geçersiz video kimliği.';
+    else msg = 'Video oynatılamadı (hata '+c+').';
+    showToast(msg);
+  }
+
+  // Poll: stands in for audio/video 'timeupdate'. Cheap (a few cached getters), and it also
+  // keeps the seek bar / active line right after a seek while paused.
+  setInterval(function ytTick(){
+    if(!isVideoMode() || !ytReady) return;
+    const t = getCurrentTime(), d = getDuration();
+    const sb = document.getElementById('seekBar');
+    if(d && Math.abs(parseFloat(sb.max) - d) > 0.5){
+      sb.max = d;
+      document.getElementById('durTime').textContent = fmtTime(d);
+    }
+    if(!sb.matches(':active')) sb.value = t;
+    document.getElementById('curTime').textContent = fmtTime(t);
+    updateActiveLine();
+  }, 150);
 
   // ================= Unified media abstraction =================
   // Every shared LRC/vocab function below (seek, active-line tracking, transport
@@ -862,11 +1012,26 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   // path drives both Podcast (audio) and Video (local file) modes.
   function isVideoMode(){ return mode === 'video'; }
   function mediaIsReady(){ return isVideoMode() ? videoReady : audioLoaded; }
-  function getCurrentTime(){ return isVideoMode() ? (localVideo.currentTime||0) : audio.currentTime; }
-  function getDuration(){ return isVideoMode() ? (localVideo.duration||0) : (audio.duration||0); }
-  function isPaused(){ return isVideoMode() ? localVideo.paused : audio.paused; }
-  function mediaPause(){ if(isVideoMode()) localVideo.pause(); else audio.pause(); }
-  function mediaSeek(t){ if(isVideoMode()) localVideo.currentTime = t; else audio.currentTime = t; }
+  function getCurrentTime(){
+    if(isVideoMode()){ if(!ytReady) return 0; try{ return ytPlayer.getCurrentTime() || 0; }catch(err){ return 0; } }
+    return audio.currentTime;
+  }
+  function getDuration(){
+    if(isVideoMode()){ if(!ytReady) return 0; try{ return ytPlayer.getDuration() || 0; }catch(err){ return 0; } }
+    return audio.duration || 0;
+  }
+  function isPaused(){
+    if(isVideoMode()){
+      if(!ytReady) return true;
+      try{ const st = ytPlayer.getPlayerState(); return !(st === YT_STATE.PLAYING || st === YT_STATE.BUFFERING); }catch(err){ return true; }
+    }
+    return audio.paused;
+  }
+  function mediaPause(){
+    if(isVideoMode()){ ytIntendPlay = false; if(ytReady){ try{ ytPlayer.pauseVideo(); }catch(err){} } }
+    else audio.pause();
+  }
+  function mediaSeek(t){ if(isVideoMode()) ytSeek(t, true); else audio.currentTime = t; }
 
   // ================= Helpers =================
   function fmtTime(s){
@@ -1774,7 +1939,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   // ================= Equalizer (real Web Audio filters, not cosmetic) =================
   // 5-band chain: low-shelf, two mid peaking bands, a third mid peaking band, high-shelf.
   // Gains are in dB. createMediaElementSource can only ever be called ONCE per media
-  // element for its whole lifetime, so each element (audio, localVideo) gets its own
+  // element for its whole lifetime, so the audio element gets its own
   // filter chain built lazily on first real use (a genuine user tap, satisfying
   // autoplay-gesture requirements), sharing one AudioContext between them; from then on
   // a preset change just adjusts whichever chain(s) already exist.
@@ -1793,7 +1958,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     warm:    [4,2,0,-2,-4]
   };
   let eqMode = 'off';
-  let audioCtx = null, eqFiltersAudio = null, eqFiltersVideo = null;
+  let audioCtx = null, eqFiltersAudio = null;
 
   function buildEqChain(mediaEl){
     const source = audioCtx.createMediaElementSource(mediaEl);
@@ -1834,29 +1999,23 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     }
     return true;
   }
-  function ensureVideoAudioGraph(){
-    if(!ensureAudioCtx()) return false;
-    if(!eqFiltersVideo){
-      try{ eqFiltersVideo = buildEqChain(localVideo); }catch(err){ return false; }
-    }
-    return true;
-  }
 
   function applyEqPreset(mode){
     if(!EQ_PRESETS[mode]) mode = 'off';
     eqMode = mode;
-    if(mode === 'off' && !eqFiltersAudio && !eqFiltersVideo){
+    if(mode === 'off' && !eqFiltersAudio){
       // Nothing was ever routed through Web Audio — leave both elements' normal output
       // untouched rather than spinning up a graph just to set everything to zero.
       return;
     }
-    // Build whichever chain matches what's active right now — an explicit tap on a
-    // preset is itself a valid gesture, so this is safe even before the first play.
-    if(isVideoMode()) ensureVideoAudioGraph(); else ensureAudioGraph();
+    // The EQ only exists for Podcast: Web Audio cannot reach the audio inside a cross-origin
+    // YouTube iframe. In Video mode just remember the preset — it's applied on the next
+    // Podcast play. (An explicit tap on a preset is a valid gesture to build the chain.)
+    if(isVideoMode() && !eqFiltersAudio) return;
+    ensureAudioGraph();
     if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
     const gains = EQ_PRESETS[mode];
     if(eqFiltersAudio) eqFiltersAudio.forEach((f,i)=> f.gain.setTargetAtTime(gains[i], audioCtx.currentTime, 0.05));
-    if(eqFiltersVideo) eqFiltersVideo.forEach((f,i)=> f.gain.setTargetAtTime(gains[i], audioCtx.currentTime, 0.05));
   }
 
   document.getElementById('eqOptions').addEventListener('click', (e)=>{
@@ -1888,9 +2047,8 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   function safePlay(){
     if(isVideoMode()){
       if(!mediaIsReady()){ showToast('Önce ☰ menüsünden bir video yükle'); return; }
-      if(eqMode !== 'off' && !eqFiltersVideo) applyEqPreset(eqMode); // apply saved EQ on first real play gesture
-      const p = localVideo.play();
-      if(p && p.catch) p.catch(err=>{ if(err.name!=='AbortError') showToast('Video oynatılamadı: '+err.message); });
+      ytIntendPlay = true;
+      ytWhenReady(()=>{ try{ ytPlayer.playVideo(); }catch(err){} });
       return;
     }
     if(eqMode !== 'off' && !eqFiltersAudio) applyEqPreset(eqMode); // apply saved EQ on first real play gesture
@@ -1933,7 +2091,13 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     document.getElementById('curTime').textContent = fmtTime(audio.currentTime);
     updateActiveLine();
   });
-  seekBar.addEventListener('input', ()=>{ mediaSeek(parseFloat(seekBar.value)); });
+  // While dragging, YouTube is only asked for buffered positions (allowSeekAhead=false);
+  // the final position is committed on release.
+  seekBar.addEventListener('input', ()=>{
+    const v = parseFloat(seekBar.value);
+    if(isVideoMode()) ytSeek(v, false); else mediaSeek(v);
+  });
+  seekBar.addEventListener('change', ()=>{ if(isVideoMode()) ytSeek(parseFloat(seekBar.value), true); });
 
   document.getElementById('backBtn').addEventListener('click', ()=>{ mediaSeek(Math.max(0, getCurrentTime()-5)); });
   document.getElementById('fwdBtn').addEventListener('click', ()=>{ mediaSeek(Math.min(getDuration()||1e9, getCurrentTime()+5)); });
@@ -1959,7 +2123,17 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     v = Math.round(Math.min(2, Math.max(0.5, v)) * 20) / 20; // snap to 0.05 steps
     if(isVideoMode()){
       videoSpeed = v;
-      localVideo.playbackRate = v; // setting .playbackRate never resets currentTime/restarts playback
+      if(ytReady){
+        try{ ytPlayer.setPlaybackRate(v); }catch(err){}
+        // YouTube only honors the rates it supports and rounds anything else — read the real
+        // rate back shortly after and show that, instead of a speed it didn't actually apply.
+        clearTimeout(ytRateTimer);
+        ytRateTimer = setTimeout(()=>{
+          if(!isVideoMode() || !ytReady) return;
+          let a = 0; try{ a = ytPlayer.getPlaybackRate(); }catch(err){}
+          if(a && Math.abs(a - videoSpeed) > 0.001) setSpeed(a);
+        }, 500);
+      }
     }else{
       podcastSpeed = v;
       audio.playbackRate = v;
@@ -2699,14 +2873,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     }
     playAdjacentTrack(1);
   });
-  // Video mode has no playlist to advance through, so any loop setting (besides 'off')
-  // just replays the same video — matching what "loop" means when there's only one item.
-  localVideo.addEventListener('ended', ()=>{
-    if(videoLoopMode !== 'off'){
-      localVideo.currentTime = 0;
-      safePlay();
-    }
-  });
+  // Video loop (any setting besides 'off' replays the same video) is handled in ytOnState().
 
   const loopBtn = document.getElementById('loopBtn');
   function applyLoopUI(){
@@ -3240,12 +3407,12 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     footer.appendChild(knowBtn);
   }
 
-  // ================= Video mode (local file) =================
+  // ================= Video mode (YouTube video + local LRC) =================
   // Everything above (LRC parsing, word press/vocab, multi-line selection, seek,
-  // transport buttons, mediaSession) already runs through getCurrentTime()/mediaSeek()/
-  // isPaused()/mediaPause() and therefore works unchanged once a video is loaded — this
-  // section only has to (a) load a local video file into <video>, (b) parse/load the
-  // video's own .lrc into the same lrcLines/renderLyrics() pipeline the audio side
+  // transport buttons, mediaSession) runs through getCurrentTime()/mediaSeek()/
+  // isPaused()/mediaPause(), which now talk to the YouTube player — so this section only
+  // has to (a) turn a pasted YouTube link into a playlist entry, (b) attach the video's own
+  // .lrc to it and feed that into the same lrcLines/renderLyrics() pipeline the audio side
   // uses, (c) switch the visible UI between the two modes and between portrait/landscape
   // layouts, and (d) let the person resize the video/lyrics split and hide the chrome.
   const modeTabPodcast = document.getElementById('modeTabPodcast');
@@ -3268,36 +3435,87 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     }
   }
 
-  // Video playlist — mirrors Podcast's playlist exactly: add video files and .lrc
-  // files (auto-paired by filename), pick a video to load it, remove entries, save/
-  // reload the list. Kept in its own `videoPlaylist` array/storage key so it never
-  // touches Podcast's `playlist`. Video File objects can't be persisted to storage
-  // either (same browser limitation Podcast already lives with), so like Podcast,
-  // titles/order/lrc survive a reload but video files need relinking once.
+  // Video playlist — YouTube links + local .lrc files. Each entry is
+  // {id, title, ytId, ytUrl, lrcName, lrcText, hasLrc, addedAt}. Every field is a plain
+  // string/bool, so — unlike audio File objects — the whole list survives reloads and syncs
+  // across devices through the existing Firebase sync, with nothing to relink afterwards.
+  // (Entries saved by the old local-video version have no ytId: tap one to give it a link.)
   let videoPlaylist = [];
   let currentVideoIdx = -1;
   let relinkVideoTargetIdx = null;
-  let currentLocalVideoUrl = null;
 
-  document.getElementById('addVideoBtn').addEventListener('click', ()=> document.getElementById('videoMultiInput').click());
-  document.getElementById('addVideoLrcMultiBtn').addEventListener('click', ()=> document.getElementById('videoLrcMultiInput').click());
-
-  document.getElementById('videoMultiInput').addEventListener('change', (e)=>{
-    const files = Array.from(e.target.files||[]).filter(isUsableFile);
-    const skipped = e.target.files.length - files.length;
-    files.forEach(f=>{
-      const stem = stemOf(f.name);
-      let t = videoPlaylist.find(x=> !x.videoFile && (stemOf(x.videoName)===stem || stemOf(x.title)===stem));
-      if(t){ t.videoFile = f; t.videoName = f.name; }
-      else{
-        videoPlaylist.push({id:makeId(), title:f.name.replace(/\.[^.]+$/,''), videoName:f.name, videoFile:f, lrcName:null, lrcText:null, hasLrc:false, addedAt:Date.now()});
+  function parseYouTubeId(input){
+    const raw = String(input||'').trim();
+    if(/^[A-Za-z0-9_-]{11}$/.test(raw)) return raw;
+    try{
+      const u = new URL(/^https?:\/\//i.test(raw) ? raw : 'https://'+raw);
+      const host = u.hostname.replace(/^(www|m|music)\./,'');
+      let id = '';
+      if(host === 'youtu.be') id = u.pathname.split('/')[1] || '';
+      else if(host === 'youtube.com' || host === 'youtube-nocookie.com'){
+        if(u.pathname === '/watch') id = u.searchParams.get('v') || '';
+        else{ const m = u.pathname.match(/^\/(?:shorts|embed|live|v)\/([^/?#]+)/); if(m) id = m[1]; }
       }
-    });
+      return /^[A-Za-z0-9_-]{11}$/.test(id) ? id : null;
+    }catch(err){ return null; }
+  }
+  function normTitle(s){
+    return String(s||'').toLowerCase().replace(/\.(lrc|txt)$/,'').replace(/[^\p{L}\p{N}]+/gu,'');
+  }
+  async function fetchYoutubeTitle(id){
+    try{
+      const r = await fetchWithTimeout('https://www.youtube.com/oembed?format=json&url='+encodeURIComponent('https://www.youtube.com/watch?v='+id), 5000);
+      if(!r.ok) return '';
+      const d = await r.json();
+      return (d && d.title) ? String(d.title).trim() : '';
+    }catch(err){ return ''; }
+  }
+  // An .lrc finds its video by an [11-char video id] in its file name (yt-dlp style) or by
+  // its name matching the video's title.
+  function findVideoEntryForLrc(fileName){
+    const m = fileName.match(/\[([A-Za-z0-9_-]{11})\]/);
+    if(m){ const byId = videoPlaylist.find(t=> t.ytId === m[1]); if(byId) return byId; }
+    const n = normTitle(fileName);
+    if(!n) return null;
+    return videoPlaylist.find(t=> normTitle(t.title) === n) || null;
+  }
+
+  async function addYoutubeLink(raw){
+    const id = parseYouTubeId(raw);
+    if(!id){ showToast('Geçerli bir YouTube linki değil'); return false; }
+    if(videoPlaylist.some(t=> t.ytId === id)){ showToast('Bu video zaten listede'); return false; }
+    const entry = {id:makeId(), title:'YouTube · '+id, ytId:id, ytUrl:'https://www.youtube.com/watch?v='+id,
+                   lrcName:null, lrcText:null, hasLrc:false, addedAt:Date.now()};
+    videoPlaylist.push(entry);
     renderVideoPlaylist(); persistVideoPlaylist();
-    if(files.length) showToast(files.length+' video dosyası eklendi');
-    if(skipped>0) explainBadPick('video');
-    e.target.value = '';
-  });
+    showToast('Video listeye eklendi');
+    const title = await fetchYoutubeTitle(id);
+    if(title && videoPlaylist.includes(entry)){
+      entry.title = title;
+      // an .lrc added earlier without its video may be waiting under the same title
+      const orphan = videoPlaylist.find(t=> t!==entry && !t.ytId && t.lrcText && normTitle(t.title)===normTitle(title));
+      if(orphan && !entry.lrcText){
+        entry.lrcText = orphan.lrcText; entry.lrcName = orphan.lrcName; entry.hasLrc = true;
+        const oi = videoPlaylist.indexOf(orphan);
+        videoPlaylist.splice(oi, 1);
+        if(oi < currentVideoIdx) currentVideoIdx--;
+      }
+      renderVideoPlaylist(); persistVideoPlaylist();
+    }
+    return true;
+  }
+
+  const ytUrlInput = document.getElementById('ytUrlInput');
+  async function submitYtUrl(){
+    const raw = ytUrlInput.value.trim();
+    if(!raw) return;
+    const ok = await addYoutubeLink(raw);
+    if(ok) ytUrlInput.value = '';
+  }
+  document.getElementById('addYtBtn').addEventListener('click', submitYtUrl);
+  ytUrlInput.addEventListener('keydown', e=>{ if(e.key === 'Enter'){ e.preventDefault(); submitYtUrl(); } });
+
+  document.getElementById('addVideoLrcMultiBtn').addEventListener('click', ()=> document.getElementById('videoLrcMultiInput').click());
 
   document.getElementById('videoLrcMultiInput').addEventListener('change', (e)=>{
     const files = Array.from(e.target.files||[]);
@@ -3305,12 +3523,11 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     files.forEach(f=>{
       const reader = new FileReader();
       reader.onload = ()=>{
-        const stem = stemOf(f.name);
         const text = reader.result;
-        let t = videoPlaylist.find(x=> stemOf(x.title)===stem || stemOf(x.videoName)===stem);
+        const t = findVideoEntryForLrc(f.name);
         if(t){ t.lrcText = text; t.lrcName = f.name; t.hasLrc = true; }
         else{
-          videoPlaylist.push({id:makeId(), title:f.name.replace(/\.[^.]+$/,''), videoName:null, videoFile:null, lrcName:f.name, lrcText:text, hasLrc:true, addedAt:Date.now()});
+          videoPlaylist.push({id:makeId(), title:f.name.replace(/\.(lrc|txt)$/i,''), ytId:null, ytUrl:null, lrcName:f.name, lrcText:text, hasLrc:true, addedAt:Date.now()});
         }
         remaining--;
         renderVideoPlaylist(); persistVideoPlaylist();
@@ -3321,21 +3538,6 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     e.target.value = '';
   });
 
-  document.getElementById('relinkVideoInput').addEventListener('change', (e)=>{
-    const f = e.target.files[0];
-    if(relinkVideoTargetIdx!=null){
-      if(isUsableFile(f)){
-        videoPlaylist[relinkVideoTargetIdx].videoFile = f;
-        videoPlaylist[relinkVideoTargetIdx].videoName = f.name;
-        persistVideoPlaylist();
-        selectVideoTrack(relinkVideoTargetIdx);
-      } else if(f){
-        explainBadPick('video');
-      }
-    }
-    relinkVideoTargetIdx = null;
-    e.target.value = '';
-  });
   document.getElementById('relinkVideoLrcInput').addEventListener('change', (e)=>{
     const f = e.target.files[0];
     const idx = relinkVideoTargetIdx;
@@ -3353,6 +3555,19 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     e.target.value = '';
   });
 
+  // An entry that only has an .lrc (no video yet) gets its link by tapping it.
+  function attachYoutubeToEntry(i){
+    const raw = window.prompt('Bu söz dosyası için YouTube linkini yapıştır:', '');
+    if(raw === null) return;
+    const id = parseYouTubeId(raw);
+    if(!id){ showToast('Geçerli bir YouTube linki değil'); return; }
+    if(videoPlaylist.some((x,j)=> j!==i && x.ytId===id)){ showToast('Bu video zaten listede'); return; }
+    const t = videoPlaylist[i];
+    t.ytId = id; t.ytUrl = 'https://www.youtube.com/watch?v='+id;
+    renderVideoPlaylist(); persistVideoPlaylist();
+    if(t.lrcText) selectVideoTrack(i);
+  }
+
   function renderVideoPlaylist(){
     const body = document.getElementById('videoPlaylistBody');
     if(!videoPlaylist.length){
@@ -3363,14 +3578,14 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     videoPlaylist.forEach((t,i)=>{
       const row = document.createElement('div');
       row.className = 'playlist-item' + (i===currentVideoIdx ? ' current' : '');
-      const videoState = t.videoFile ? '🎬 hazır' : '🔗 video dosyası seçilmeli';
+      const videoState = t.ytId ? '▶ YouTube hazır' : '🔗 YouTube linki gerekli';
       const lrcState = t.hasLrc ? '📝 söz hazır' : '📝 söz yok';
       row.innerHTML =
         '<div class="pl-main"><div class="pl-title">'+escapeHtml(t.title)+'</div>'+
         '<div class="pl-sub">'+lrcState+' · '+videoState+'</div></div>'+
         '<span class="pl-del" data-i="'+i+'">✕</span>';
       row.querySelector('.pl-main').addEventListener('click', ()=>{
-        if(!t.videoFile){ relinkVideoTargetIdx = i; document.getElementById('relinkVideoInput').click(); }
+        if(!t.ytId){ attachYoutubeToEntry(i); }
         else if(!t.lrcText){ relinkVideoTargetIdx = i; document.getElementById('relinkVideoLrcInput').click(); }
         else selectVideoTrack(i);
       });
@@ -3378,6 +3593,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
         e.stopPropagation();
         videoPlaylist.splice(i,1);
         if(currentVideoIdx===i) currentVideoIdx=-1;
+        else if(i < currentVideoIdx) currentVideoIdx--;
         renderVideoPlaylist(); persistVideoPlaylist();
       });
       body.appendChild(row);
@@ -3386,32 +3602,27 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
 
   function selectVideoTrack(i, autoPlay){
     const t = videoPlaylist[i];
+    if(!t || !t.ytId){ showToast('Bu kayıt için YouTube linki yok'); return; }
     currentVideoIdx = i;
-    if(t.videoFile){
-      if(currentLocalVideoUrl) URL.revokeObjectURL(currentLocalVideoUrl);
-      currentLocalVideoUrl = URL.createObjectURL(t.videoFile);
-      localVideo.src = currentLocalVideoUrl;
-      localVideo.load();
-      if(videoZoomReset) videoZoomReset();
-      localVideo.playbackRate = videoSpeed; // .load() can reset this in some browsers
-      videoReady = true;
-      videoEmpty.style.display = 'none';
-    }else{
-      showToast('Bu video için dosya seçilmedi');
-    }
+    videoReady = true;
+    videoEmpty.style.display = 'none';
+    ytIntendPlay = !!autoPlay;
     videoTitle = t.title;
     videoLrcLines = t.lrcText ? parseLRC(t.lrcText) : [];
     currentLineIdx = -1;
+    autoFitVideoSize();
     if(!isVideoMode()) switchMode('video'); else renderLyrics();
+    ytLoad(t.ytId, !!autoPlay); // after the mode switch so the player is created in a visible pane
     updateVideoStatusHint();
     updateNowPlaying();
-    if(autoPlay && t.videoFile) safePlay();
+    updateMediaSession({title: t.title});
     libraryOverlay.classList.remove('show');
+    renderVideoPlaylist();
   }
 
   async function persistVideoPlaylist(){
     try{
-      const toSave = videoPlaylist.map(t=>({id:t.id, title:t.title, videoName:t.videoName, lrcName:t.lrcName, lrcText:t.lrcText, hasLrc:t.hasLrc, addedAt:t.addedAt}));
+      const toSave = videoPlaylist.map(t=>({id:t.id, title:t.title, ytId:t.ytId||null, ytUrl:t.ytUrl||null, lrcName:t.lrcName, lrcText:t.lrcText, hasLrc:t.hasLrc, addedAt:t.addedAt}));
       await storage.set('video-playlist-data', JSON.stringify(toSave), false);
     }catch(err){ showToast('Video listesi kaydedilemedi'); }
     scheduleCloudAutoPush();
@@ -3421,36 +3632,22 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
       const res = await storage.get('video-playlist-data', false);
       if(res){
         const saved = JSON.parse(res.value);
-        videoPlaylist = saved.map(t=>({...t, videoFile:null}));
+        videoPlaylist = saved.map(t=>({ytId:null, ytUrl:null, ...t}));
       }
     }catch(err){ videoPlaylist = []; }
   }
   document.getElementById('saveVideoPlaylistBtn').addEventListener('click', async ()=>{
     await persistVideoPlaylist();
-    showToast('Video listesi kaydedildi (video dosyalarını her açılışta yeniden seçmen gerekir)');
+    showToast('Video listesi kaydedildi');
   });
 
-  localVideo.addEventListener('play', ()=>{
-    if(!isVideoMode()) return;
-    playFab.textContent = '❚❚';
-    if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
-    clearTimeout(userScrollDebounce);
-    userScrolling = false;
-    scrollToActiveLine(true);
-  });
-  localVideo.addEventListener('pause', ()=>{
-    if(!isVideoMode()) return;
-    playFab.textContent = '▶';
-    if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
-  });
-  // Auto-fit the video/lyrics split to the video's own aspect ratio as soon as it's
-  // known, instead of leaving the person to drag the splitter into a good position by
-  // hand every time — computed for both orientations at once (using swapped window
-  // dimensions for whichever one isn't currently active) so rotating afterward also
-  // lands on a sensible size, not last orientation's leftover ratio.
+  // Auto-fit the video/lyrics split to the player's 16:9 frame instead of leaving the person
+  // to drag the splitter into a good position by hand every time — computed for both
+  // orientations at once (using swapped window dimensions for whichever one isn't currently
+  // active) so rotating afterward also lands on a sensible size, not last orientation's
+  // leftover ratio. Manual splitter drags still override it afterwards.
   function autoFitVideoSize(){
-    if(!localVideo.videoWidth || !localVideo.videoHeight) return;
-    const aspect = localVideo.videoWidth / localVideo.videoHeight;
+    const aspect = 16/9;
     const w = window.innerWidth, h = window.innerHeight;
     const portraitW = Math.min(w,h), portraitH = Math.max(w,h);
     const portraitPct = Math.max(25, Math.min(70, (portraitW/aspect / portraitH) * 100));
@@ -3459,151 +3656,16 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     document.documentElement.style.setProperty('--video-size-portrait', portraitPct+'%');
     document.documentElement.style.setProperty('--video-size-landscape', landPct+'%');
   }
-  localVideo.addEventListener('loadedmetadata', ()=>{
-    if(!isVideoMode()) return;
-    seekBar.max = localVideo.duration;
-    document.getElementById('durTime').textContent = fmtTime(localVideo.duration);
-    autoFitVideoSize();
-  });
-  localVideo.addEventListener('timeupdate', ()=>{
-    if(!isVideoMode()) return;
-    if(!seekBar.matches(':active')) seekBar.value = localVideo.currentTime;
-    document.getElementById('curTime').textContent = fmtTime(localVideo.currentTime);
-    updateActiveLine();
-  });
-  localVideo.addEventListener('error', ()=>{
-    showToast('Video dosyası oynatılamadı — format desteklenmiyor olabilir.');
-  });
 
   // Podcast <-> Video: switching pauses whichever player is being left behind (so
   // audio never keeps playing invisibly under the video tab or vice versa), swaps the
   // visible player UI, and refreshes the transport bar (seekBar/duration/play icon)
   // to reflect whichever player is now active — same bar, same buttons, just a
   // different source underneath, exactly like the LRC/vocab panel already is.
-  // Pinch-to-zoom + pan on the video itself — pinch with two fingers to zoom in
-  // (1x-4x), drag with one finger to pan once zoomed, double-tap to reset. Attached to
-  // the <video> element directly (not the whole frame) so it never steals taps meant
-  // for the ⛶ focus button or the splitter, and it works the same whether the frame
-  // is small, split-resized, or fullscreen — there's nothing fullscreen-specific to
-  // wire up beyond that.
-  (function setupVideoZoom(){
-    let scale=1, tx=0, ty=0;
-    let startDist=0, startScale=1, panning=false, panStart={x:0,y:0}, startTx=0, startTy=0;
-    let lastTapTime=0;
-    let xLocked=false; // when true: no pinch zoom, no horizontal pan — vertical pan only
-
-    function applyTransform(){ localVideo.style.transform = 'translate('+tx+'px,'+ty+'px) scale('+scale+')'; }
-    function clampPan(){
-      const rect = localVideo.getBoundingClientRect();
-      const maxX = Math.max(0, (rect.width * (scale-1)) / 2);
-      const maxY = Math.max(0, (rect.height * (scale-1)) / 2);
-      tx = Math.max(-maxX, Math.min(maxX, tx));
-      ty = Math.max(-maxY, Math.min(maxY, ty));
-    }
-    function resetZoom(){
-      scale=1; tx=0; ty=0;
-      localVideo.style.transition = 'transform .25s ease';
-      applyTransform();
-      setTimeout(()=>{ localVideo.style.transition = ''; }, 260);
-      hideZoomLockBtn();
-    }
-    videoZoomReset = resetZoom; // exposed so loading a new video starts unzoomed
-    function dist(a,b){ return Math.hypot(b.clientX-a.clientX, b.clientY-a.clientY); }
-
-    // ---- Zoom-lock button: appears above (or below) the play FAB once zoomed in, lets
-    // the user pin the horizontal axis so a vertical-only pan doesn't also drift sideways
-    // or accidentally re-zoom. Same idle-fade-then-wake pattern as the play FAB itself:
-    // while opaque, a tap toggles the lock; once faded, a tap only wakes it back to
-    // opaque (and does NOT toggle) — the first appearance starts opaque, so its very
-    // first tap toggles immediately, exactly like every other opaque-state tap.
-    let zoomLockIdleTimer = null;
-    function updateZoomLockPosition(){
-      const r = playFab.getBoundingClientRect();
-      if(r.width===0 && r.height===0) return;
-      const btnSize = 38, gap = 10;
-      let top = r.top - btnSize - gap;
-      if(top < 6) top = r.top + r.height + gap; // playFab too close to the top edge — sit below it instead
-      let left = r.left + (r.width - btnSize)/2;
-      left = Math.max(6, Math.min(window.innerWidth - btnSize - 6, left));
-      zoomLockBtn.style.left = left+'px';
-      zoomLockBtn.style.top = top+'px';
-    }
-    window.updateZoomLockPosition = updateZoomLockPosition; // playFab position code calls this too
-    function showZoomLockBtn(){
-      if(zoomLockBtn.classList.contains('show')) return;
-      zoomLockBtn.classList.add('show');
-      zoomLockBtn.classList.remove('idle');
-      clearTimeout(zoomLockIdleTimer);
-      updateZoomLockPosition();
-      zoomLockIdleTimer = setTimeout(()=> zoomLockBtn.classList.add('idle'), 2500);
-    }
-    function hideZoomLockBtn(){
-      zoomLockBtn.classList.remove('show','idle','active');
-      clearTimeout(zoomLockIdleTimer);
-      xLocked = false;
-      zoomLockBtn.textContent = '🔓';
-    }
-    zoomLockBtn.addEventListener('click', (e)=>{
-      e.stopPropagation();
-      if(zoomLockBtn.classList.contains('idle')){
-        zoomLockBtn.classList.remove('idle'); // faded: this tap only wakes it, doesn't toggle
-      }else{
-        xLocked = !xLocked; // opaque (including the very first appearance): this tap toggles
-        zoomLockBtn.classList.toggle('active', xLocked);
-        zoomLockBtn.textContent = xLocked ? '🔒' : '🔓';
-      }
-      clearTimeout(zoomLockIdleTimer);
-      zoomLockIdleTimer = setTimeout(()=> zoomLockBtn.classList.add('idle'), 2500);
-    });
-
-    localVideo.addEventListener('touchstart', (e)=>{
-      if(e.touches.length===2){
-        if(xLocked) return; // locked: pinch does nothing at all
-        startDist = dist(e.touches[0], e.touches[1]);
-        startScale = scale;
-        panning = false;
-      }else if(e.touches.length===1){
-        const now = Date.now();
-        if(now - lastTapTime < 300){ if(!xLocked) resetZoom(); lastTapTime = 0; return; }
-        lastTapTime = now;
-        if(scale > 1){
-          panning = true;
-          panStart = {x:e.touches[0].clientX, y:e.touches[0].clientY};
-          startTx = tx; startTy = ty;
-        }
-      }
-    }, {passive:true});
-
-    localVideo.addEventListener('touchmove', (e)=>{
-      if(e.touches.length===2){
-        if(xLocked) return;
-        e.preventDefault();
-        const d = dist(e.touches[0], e.touches[1]);
-        scale = Math.max(1, Math.min(4, startScale * (d / (startDist||d))));
-        clampPan();
-        applyTransform();
-        if(scale > 1) showZoomLockBtn();
-      }else if(e.touches.length===1 && panning){
-        e.preventDefault();
-        if(!xLocked) tx = startTx + (e.touches[0].clientX - panStart.x); // locked: hold x, pan y only
-        ty = startTy + (e.touches[0].clientY - panStart.y);
-        clampPan();
-        applyTransform();
-      }
-    }, {passive:false});
-
-    localVideo.addEventListener('touchend', (e)=>{
-      if(e.touches.length===0){
-        panning = false;
-        if(scale <= 1.02 && !xLocked) resetZoom();
-      }
-    });
-  })();
-
   function switchMode(next){
     if(mode === next) return;
     if(mode === 'podcast' && !audio.paused) audio.pause();
-    if(mode === 'video' && !localVideo.paused) localVideo.pause();
+    if(mode === 'video' && !isPaused()) mediaPause();
     mode = next;
     document.body.classList.toggle('mode-video', mode==='video');
     document.body.classList.toggle('mode-podcast', mode==='podcast');
@@ -3777,6 +3839,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
       startPos = landscape ? p.x : p.y;
       startPct = currentPct(varName);
       dragging = true;
+      videoWrap.style.pointerEvents = 'none'; // an iframe would swallow mouse moves mid-drag
       if(e.cancelable) e.preventDefault();
     }
     function move(e){
@@ -3788,7 +3851,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
       const pct = Math.max(18, Math.min(78, startPct + deltaPct));
       document.documentElement.style.setProperty(varName, pct+'%');
     }
-    function end(){ dragging = false; }
+    function end(){ dragging = false; videoWrap.style.pointerEvents = ''; }
     videoSplitter.addEventListener('touchstart', begin, {passive:false});
     videoSplitter.addEventListener('mousedown', begin);
     document.addEventListener('touchmove', move, {passive:false});
