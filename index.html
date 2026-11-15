@@ -1,0 +1,3822 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0a0b">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>SyncPod — Podcast Söz Senkronu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Quicksand:wght@500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script>
+window.__fbLoadErrors = [];
+window.__fbLoadFallback = function(failedScriptEl, primaryName){
+  // Called if the cdnjs copy of a Firebase script fails to load — try gstatic as a fallback.
+  window.__fbLoadErrors.push(primaryName + ' (cdnjs)');
+  var s = document.createElement('script');
+  s.src = 'https://www.gstatic.com/firebasejs/9.23.0/' + primaryName;
+  s.onerror = function(){ window.__fbLoadErrors.push(primaryName + ' (gstatic fallback)'); };
+  failedScriptEl.parentNode.insertBefore(s, failedScriptEl.nextSibling);
+};
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0-20230621164011/firebase-app-compat.js" onerror="window.__fbLoadFallback(this, 'firebase-app-compat.js')"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0-20230621164011/firebase-auth-compat.js" onerror="window.__fbLoadFallback(this, 'firebase-auth-compat.js')"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0-20230621164011/firebase-database-compat.js" onerror="window.__fbLoadFallback(this, 'firebase-database-compat.js')"></script>
+<style>
+  :root{
+    --bg:#0a0a0b;
+    --panel:#151517;
+    --panel-2:#1c1c1e;
+    --border:#2a2a2c;
+    --border-soft:#1e1e20;
+    --text:#ffffff;
+    --text-secondary:#b3b3b3;
+    --text-tertiary:#6f6f72;
+    --accent:#2eb872;
+    --accent-strong:#3ecf8e;
+    --accent-dim:rgba(46,184,114,0.14);
+    --secondary:#5b8def;
+    --secondary-dim:rgba(91,141,239,0.14);
+    --danger:#e2685c;
+    --danger-dim:rgba(226,104,92,0.14);
+    --radius:14px;
+    --sans:'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --mono:'Space Mono', ui-monospace, monospace;
+    --lyric-font:'Inter', -apple-system, sans-serif;
+    --lyric-size:26px;
+    --lyric-align:left;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%; margin:0;}
+  body{
+    display:flex; flex-direction:column;
+    height:100dvh; overflow:hidden;
+    background:var(--bg); color:var(--text); font-family:var(--sans);
+  }
+
+  header{
+    flex:0 0 auto;
+    padding:12px 16px 8px;
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+  }
+  .brand{display:flex; align-items:center; gap:10px;}
+  .brand .mark{
+    width:30px; height:30px; border-radius:8px; background:var(--accent);
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--mono); font-weight:700; font-size:12px; color:#052e18;
+  }
+  .brand h1{font-size:15px; font-weight:700; margin:0; letter-spacing:-.2px;}
+  .vocab-toggle{
+    font-size:12px; font-weight:600; color:var(--text-secondary);
+    background:var(--panel); border:1px solid var(--border); border-radius:18px;
+    padding:8px 13px; display:flex; align-items:center; gap:6px; cursor:pointer;
+  }
+  .vocab-toggle .count{background:var(--accent-dim); color:var(--accent-strong); border-radius:9px; padding:1px 6px; font-size:10.5px; font-weight:700;}
+
+  .now-playing-bar{
+    flex:0 0 auto; padding:0 12px 8px;
+    max-width:680px; width:100%; margin:0 auto; box-sizing:border-box;
+  }
+  .now-playing{
+    font-size:11.5px; color:var(--text-tertiary);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; text-align:center;
+  }
+  .now-playing b{color:var(--text-secondary); font-weight:600;}
+  .now-playing.empty{color:var(--text-tertiary);}
+
+  .mode-tabs{
+    display:flex; gap:6px; padding:0 12px 8px; max-width:680px; width:100%; margin:0 auto; box-sizing:border-box;
+  }
+  .mode-tab{
+    flex:1 1 0; text-align:center; padding:8px 10px; border-radius:10px; font-size:12px; font-weight:700;
+    background:var(--panel-2); border:1px solid var(--border); color:var(--text-tertiary); cursor:pointer;
+  }
+  .mode-tab.active{border-color:var(--accent); color:var(--accent-strong); background:var(--accent-dim);}
+
+  /* Stage: holds the video pane, the drag splitter, and the lyrics <main> together so
+     they can be arranged as a column (portrait) or a row (landscape) and resized as a
+     pair. --video-size is the video pane's share of the stage's main axis (height in
+     column layout, width in row layout) — the one thing the splitter drag updates. */
+  :root{ --video-size-portrait: 42%; --video-size-landscape: 45%; }
+  .stage{
+    flex:1 1 auto; min-height:0; display:flex; flex-direction:column;
+    max-width:680px; width:100%; margin:0 auto; box-sizing:border-box;
+  }
+  .video-wrap{
+    display:none; flex-direction:column; box-sizing:border-box; padding:0 12px 8px; min-height:0;
+  }
+  .video-wrap.show{ display:flex; flex:0 0 var(--video-size-portrait); min-height:110px; }
+  .video-frame-box{
+    position:relative; width:100%; flex:1 1 auto; min-height:0; background:#000;
+    border-radius:12px; overflow:hidden; border:1px solid var(--border);
+  }
+  .video-frame-box video{ object-fit:contain; touch-action:none; transform-origin:center center; will-change:transform; }
+  .video-frame-box .video-empty{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    color:var(--text-tertiary); font-size:12px; text-align:center; padding:16px; line-height:1.7;
+  }
+  .immersive-toggle{
+    position:absolute; bottom:10px; right:10px; z-index:5; width:30px; height:30px; border-radius:8px;
+    border:1px solid rgba(255,255,255,.28); background:rgba(0,0,0,.5); color:#fff; font-size:14px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  @media (orientation:landscape){
+    .immersive-toggle{ display:none; }
+  }
+
+  /* Drag handle between the video pane and the lyrics pane — a horizontal bar you
+     drag up/down in portrait, a vertical bar you drag left/right in landscape. */
+  .splitter{ display:none; align-items:center; justify-content:center; flex:0 0 auto; }
+  .splitter.show{ display:flex; height:20px; width:100%; cursor:row-resize; touch-action:none; }
+  .splitter-grip{ background:var(--border); border-radius:3px; width:38px; height:4px; }
+
+  @media (orientation:landscape){
+    body.mode-video .stage{ flex-direction:row; max-width:none; }
+    body.mode-video .video-wrap{ padding:10px 0 10px 12px; }
+    body.mode-video .video-wrap.show{ min-height:0; min-width:140px; flex-basis:var(--video-size-landscape); }
+    body.mode-video .stage > main{ padding:10px 12px 10px 10px; }
+    body.mode-video .splitter.show{ height:auto; width:20px; cursor:col-resize; }
+    body.mode-video .splitter.show .splitter-grip{ width:4px; height:38px; }
+  }
+
+  /* Focus view (Video mode): only the video, the lyrics, and the floating play/pause
+     button remain — the whole bottom-bar (seek, transport, utility row) is removed
+     rather than trimmed, so every bit of freed height goes to video+lyrics. */
+  body.video-focus header,
+  body.video-focus .now-playing-bar,
+  body.video-focus .mode-tabs,
+  body.video-focus .bottom-bar{
+    display:none;
+  }
+  @media (orientation:landscape){
+    body.video-focus .stage{ max-width:none; }
+  }
+
+  /* Focus view (Podcast mode): a lighter version — just gives the lyrics more room by
+     hiding the header/now-playing/mode-tabs; the full bottom-bar (seek, speed, loop,
+     track nav) stays exactly as it is, since Podcast mode has no video pane competing
+     for space. */
+  body.podcast-focus header,
+  body.podcast-focus .now-playing-bar,
+  body.podcast-focus .mode-tabs{
+    display:none;
+  }
+  /* Landscape-only: strip the bottom-bar too, leaving just the lyrics panel and the
+     floating play/pause button — portrait podcast-focus is untouched and keeps the
+     full bottom-bar (seek, transport, utility row) exactly as before. */
+  @media (orientation:landscape){
+    body.podcast-focus .bottom-bar{ display:none; }
+  }
+
+  /* Safe-area gap: fullscreen/focus mode covers the entire screen, including the area
+     a rounded corner or camera cutout would normally sit behind app/browser chrome.
+     env(safe-area-inset-*) reports the real notch/corner geometry when the device has
+     one; the extra few px is a floor so there's still a visible gap even when it's 0. */
+  body.video-focus,
+  body.podcast-focus{
+    padding-top: max(env(safe-area-inset-top, 0px), 10px);
+    padding-left: max(env(safe-area-inset-left, 0px), 8px);
+    padding-right: max(env(safe-area-inset-right, 0px), 8px);
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 8px);
+    box-sizing: border-box;
+  }
+
+  .utility-row{
+    display:flex; align-items:center; justify-content:space-between; margin-top:12px;
+  }
+  .track-nav-group{
+    display:flex; align-items:center; gap:16px; flex:0 0 auto;
+  }
+  .pl-ctrl-btn{
+    flex:0 0 auto; width:32px; height:32px; border-radius:50%; background:var(--panel-2);
+    border:1px solid var(--border); color:var(--text-secondary); font-size:12px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .pl-ctrl-btn:disabled{opacity:.3; cursor:default;}
+  .pl-ctrl-btn.active{border-color:var(--accent); color:var(--accent-strong); background:var(--accent-dim);}
+  .pl-ctrl-btn.active.loop-one{border-color:var(--secondary); color:var(--secondary); background:var(--secondary-dim);}
+
+  main{
+    flex:1 1 auto; min-height:0; display:flex; flex-direction:column;
+    padding:0 12px; overflow:hidden; box-sizing:border-box;
+  }
+
+  /* Readout */
+  .readout{
+    position:relative; flex:1 1 auto; min-height:0; background:#000000;
+    border:1px solid var(--border); border-radius:var(--radius);
+    overflow:hidden; display:flex; flex-direction:column;
+  }
+  .readout-body{
+    flex:1 1 auto; min-height:0; overflow-y:auto; padding:8px 20px;
+    -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 10%, #000 90%, transparent 100%);
+    mask-image:linear-gradient(to bottom, transparent 0, #000 10%, #000 90%, transparent 100%);
+  }
+  .empty-state{text-align:center; color:var(--text-tertiary); font-size:13px; line-height:2; padding:40% 20px 0;}
+  .lyric-line{padding:10px 0; opacity:.4; transition:opacity .3s; cursor:pointer;}
+  .lyric-line.past{opacity:.26;}
+  .lyric-line.active{opacity:1; cursor:default;}
+  .lyric-text{
+    font-family:var(--lyric-font); text-align:var(--lyric-align);
+    font-size:calc(var(--lyric-size) * 0.58); font-weight:500; line-height:1.5; color:var(--text-secondary);
+    transition:font-size .2s;
+  }
+  .lyric-line.active .lyric-text{font-size:var(--lyric-size); font-weight:700; color:var(--text); line-height:1.35;}
+  .lyric-line.selected{background:var(--secondary-dim); border-radius:8px; opacity:1;}
+  .lyric-line.selected .lyric-text{color:var(--secondary);}
+  .word{
+    cursor:pointer; border-bottom:1.5px dotted transparent; padding:1px 0;
+    user-select:none; -webkit-user-select:none; touch-action:manipulation; -webkit-touch-callout:none;
+    background-image:linear-gradient(var(--accent-dim), var(--accent-dim));
+    background-repeat:no-repeat; background-position:0 0; background-size:0% 100%;
+    transition-property:background-size; transition-timing-function:linear;
+    box-decoration-break:clone; -webkit-box-decoration-break:clone;
+  }
+  .word.charging{background-size:100% 100%;}
+  .word.pressing{color:var(--accent-strong); border-bottom-color:var(--accent); background-size:100% 100%;}
+  .word.saved{color:var(--secondary); border-bottom-color:var(--secondary);}
+
+  .word-bubble{
+    position:fixed; z-index:95; background:var(--panel-2); border:1px solid var(--accent);
+    color:var(--accent-strong); padding:7px 12px; border-radius:10px; font-size:13px; font-weight:700;
+    opacity:0; transform:translateY(4px); transition:opacity .15s, transform .15s; pointer-events:none;
+    max-width:70vw; box-shadow:0 4px 14px rgba(0,0,0,.4);
+  }
+  .word-bubble.show{opacity:1; transform:translateY(0);}
+  .selection-original{font-size:13px; color:var(--text-secondary); line-height:1.6; white-space:pre-line;}
+
+  .selection-chip{
+    position:fixed; z-index:58; display:flex; align-items:center; gap:9px;
+    background:var(--secondary); color:#0b1830; padding:9px 12px; border-radius:20px;
+    font-size:12.5px; font-weight:700; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,.4);
+    opacity:0; transform:translateY(-6px) scale(.92); pointer-events:none;
+    transition:opacity .18s, transform .18s, left .18s, top .18s;
+  }
+  .selection-chip.show{opacity:1; transform:translateY(0) scale(1); pointer-events:auto;}
+  .selection-chip .chip-x{
+    background:rgba(0,0,0,0.18); border-radius:50%; width:24px; height:24px; font-size:11px;
+    display:flex; align-items:center; justify-content:center; flex:0 0 auto;
+  }
+
+  /* Bottom transport bar */
+  .bottom-bar{
+    flex:0 0 auto; background:var(--panel); border-top:1px solid var(--border);
+    padding:10px 14px calc(14px + env(safe-area-inset-bottom));
+    max-width:680px; width:100%; margin:0 auto;
+  }
+  .time-row{display:flex; justify-content:space-between; font-family:var(--mono); font-size:10.5px; color:var(--text-tertiary); margin-bottom:4px;}
+  .time-row .cur{color:var(--accent-strong); font-weight:700;}
+  input[type=range]{-webkit-appearance:none; appearance:none; width:100%; height:24px; background:transparent; outline:none; margin:0; padding:0;}
+  input[type=range]::-webkit-slider-runnable-track{width:100%; height:4px; border-radius:3px; background:var(--border);}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:var(--text); cursor:pointer; margin-top:-5px; border:none;}
+  input[type=range]::-moz-range-track{width:100%; height:4px; border-radius:3px; background:var(--border);}
+  input[type=range]::-moz-range-thumb{width:14px; height:14px; border-radius:50%; background:var(--text); border:none; cursor:pointer;}
+  #seekBar::-webkit-slider-thumb{background:var(--accent-strong);}
+  #seekBar::-moz-range-thumb{background:var(--accent-strong);}
+  #speedSlider::-webkit-slider-thumb{background:var(--accent-strong);}
+  #speedSlider::-moz-range-thumb{background:var(--accent-strong);}
+
+  .controls-row{display:flex; align-items:flex-start; justify-content:center; gap:22px; margin-top:10px;}
+  .ctrl-item{display:flex; flex-direction:column; align-items:center; gap:4px;}
+  .ctrl-btn{
+    background:var(--panel-2); border:1px solid var(--border); color:var(--text);
+    border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:12px;
+  }
+  .ctrl-label{font-size:8.5px; color:var(--text-tertiary); white-space:nowrap; font-weight:600; letter-spacing:.2px;}
+  .play-placeholder{width:48px; height:48px;}
+
+  .play-fab{
+    position:fixed; z-index:65; width:48px; height:48px; border-radius:50%;
+    background:var(--accent); color:#052e18; border:none; font-size:16px;
+    display:flex; align-items:center; justify-content:center; cursor:grab;
+    box-shadow:0 2px 10px rgba(0,0,0,.45);
+    transition:left .25s cubic-bezier(.2,.8,.2,1), top .25s cubic-bezier(.2,.8,.2,1), opacity .4s ease;
+    touch-action:none;
+  }
+  .play-fab.dragging{transition:none; cursor:grabbing; box-shadow:0 4px 18px rgba(0,0,0,.55);}
+  .play-fab.idle{ opacity:.32; }
+
+  .zoom-lock-btn{
+    position:fixed; z-index:64; width:38px; height:38px; border-radius:50%;
+    background:var(--panel-2); border:1px solid var(--border); color:var(--text);
+    font-size:15px; display:none; align-items:center; justify-content:center;
+    box-shadow:0 2px 10px rgba(0,0,0,.4); cursor:pointer; transition:opacity .4s ease;
+  }
+  .zoom-lock-btn.show{ display:flex; }
+  .zoom-lock-btn.active{ background:var(--accent); color:#052e18; border-color:var(--accent); }
+  .zoom-lock-btn.idle{ opacity:.32; }
+
+  .menu-fab{
+    flex:0 0 auto; width:44px; height:44px; border-radius:50%; background:var(--panel-2); border:1px solid var(--border);
+    color:var(--text); font-size:16px; display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+
+  .speed-fab{
+    flex:0 0 auto; width:44px; height:44px; border-radius:50%; background:var(--panel-2); border:1px solid var(--border);
+    color:var(--text); font-size:11px; font-weight:700; font-family:var(--mono); cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .speed-sheet-label{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px;}
+  .speed-sheet-label span:last-child{font-family:var(--mono); font-size:20px; color:var(--accent-strong); font-weight:700;}
+  .speed-stepper{display:flex; align-items:center; gap:10px;}
+  .speed-step-btn{
+    flex:0 0 auto; width:34px; height:34px; border-radius:50%; background:var(--panel-2);
+    border:1px solid var(--border); color:var(--text); font-size:18px; font-weight:700;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; line-height:1;
+  }
+  .speed-step-btn:active{background:var(--accent-dim); border-color:var(--accent); color:var(--accent-strong);}
+  .tick-track{position:relative; height:9px; margin-top:4px;}
+  .tick-track span{position:absolute; top:0; width:1px; height:5px; background:var(--border); transform:translateX(-50%);}
+  .tick-track span.major{height:8px; background:var(--text-tertiary); width:1.5px;}
+  .tick-labels{position:relative; height:14px; margin-top:2px;}
+  .tick-labels span{position:absolute; top:0; font-size:10px; color:var(--text-tertiary); font-family:var(--mono); transform:translateX(-50%);}
+  .tick-labels span:first-child{transform:translateX(0);}
+  .tick-labels span:last-child{transform:translateX(-100%);}
+  .speed-label{display:flex; justify-content:space-between; font-size:10.5px; color:var(--text-tertiary); margin-bottom:4px;}
+  .speed-label span{font-family:var(--mono); color:var(--text-secondary); font-weight:700;}
+
+  /* Bottom sheets (shared) */
+  .sheet-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.65);
+    display:flex; align-items:flex-end; justify-content:center; z-index:70;
+    opacity:0; pointer-events:none; transition:opacity .2s;
+  }
+  .sheet-overlay.show{opacity:1; pointer-events:auto;}
+  .sheet-overlay.gesture-through, .sheet-overlay.gesture-through .sheet{pointer-events:none;}
+  .sheet{
+    width:100%; max-width:680px; background:var(--panel);
+    border:1px solid var(--border); border-bottom:none; border-radius:20px 20px 0 0;
+    padding:14px 18px calc(22px + env(safe-area-inset-bottom)); transform:translateY(100%);
+    transition:transform .25s cubic-bezier(.2,.8,.2,1); max-height:86vh; overflow-y:auto;
+  }
+  .sheet-overlay.show .sheet{transform:translateY(0);}
+  .sheet-handle{width:36px; height:4px; background:var(--border); border-radius:2px; margin:0 auto 14px;}
+  .sheet-head{display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:10px; gap:10px;}
+  .sheet-head h2{font-size:15px; margin:0; font-weight:700;}
+  .close-x{color:var(--text-tertiary); font-size:20px; cursor:pointer; line-height:1;}
+
+  /* Settings sheet */
+  .set-group{margin-bottom:16px;}
+  .set-label{font-size:10.5px; font-weight:700; color:var(--text-tertiary); letter-spacing:.6px; text-transform:uppercase; margin-bottom:8px;}
+  .set-options{display:flex; gap:8px; flex-wrap:wrap;}
+  .set-opt{padding:9px 13px; border-radius:9px; border:1px solid var(--border); background:var(--panel-2); color:var(--text-secondary); font-size:12.5px; cursor:pointer;}
+  .set-opt.active{border-color:var(--accent); color:var(--accent-strong); background:var(--accent-dim);}
+
+  .toggle-row{display:flex; align-items:center; justify-content:space-between; gap:14px; padding:11px 0; border-bottom:1px solid var(--border-soft); cursor:pointer;}
+  .toggle-row:last-child{border-bottom:none;}
+  .toggle-row-label{font-size:13px; color:var(--text); font-weight:600;}
+  .toggle-row-sub{font-size:10.5px; color:var(--text-tertiary); margin-top:2px; line-height:1.4;}
+  .switch{position:relative; width:42px; height:24px; flex:0 0 auto; display:block;}
+  .switch input{position:absolute; opacity:0; width:100%; height:100%; margin:0; cursor:pointer;}
+  .switch .track{position:absolute; inset:0; background:var(--border); border-radius:12px; transition:background .2s; pointer-events:none;}
+  .switch .thumb{position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:50%; background:var(--text); transition:transform .2s; pointer-events:none;}
+  .switch input:checked ~ .track{background:var(--accent);}
+  .switch input:checked ~ .track .thumb{transform:translateX(18px); background:#052e18;}
+
+  /* Library sheet */
+  .menu-row{
+    width:100%; text-align:left; background:var(--panel-2); border:1px solid var(--border);
+    border-radius:11px; padding:13px 14px; margin-bottom:9px; font-size:13.5px; font-weight:600;
+    color:var(--text); cursor:pointer; display:block;
+  }
+  .menu-row.active{ border-color:var(--accent); color:var(--accent-strong); background:var(--accent-dim); }
+  .lib-hint{font-size:11px; color:var(--text-tertiary); margin:2px 0 14px; line-height:1.5;}
+  .playlist-item{
+    display:flex; align-items:center; gap:8px; padding:11px 4px; border-bottom:1px solid var(--border-soft); cursor:pointer;
+  }
+  .playlist-item.current{background:var(--accent-dim); border-radius:8px;}
+  .pl-main{flex:1; min-width:0;}
+  .pl-title{font-size:13.5px; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .pl-sub{font-size:10.5px; color:var(--text-tertiary); margin-top:2px;}
+  .pl-del{color:var(--text-tertiary); font-size:15px; cursor:pointer; padding:4px 6px;}
+  .save-playlist-btn{
+    width:100%; margin-top:12px; background:var(--accent-dim); border:1px solid var(--accent); color:var(--accent-strong);
+    border-radius:11px; padding:12px; font-weight:700; font-size:13px; cursor:pointer;
+  }
+
+  /* Word lookup sheet */
+  .word-title{font-size:23px; font-weight:700;}
+  .word-phonetic{font-family:var(--mono); font-size:12px; color:var(--text-tertiary); margin-top:2px;}
+  .save-btn{
+    flex:0 0 auto; background:var(--panel-2); border:1px solid var(--border); color:var(--text-secondary);
+    border-radius:18px; padding:8px 13px; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:5px;
+  }
+  .save-btn.saved{border-color:var(--secondary); color:var(--secondary); background:var(--secondary-dim);}
+  .wsec{margin-top:16px;}
+  .wsec-label{font-size:10px; font-weight:700; color:var(--text-tertiary); letter-spacing:.6px; text-transform:uppercase; margin-bottom:6px;}
+  .quick-translation{font-size:21px; font-weight:700; color:var(--accent-strong);}
+  .alt-row{display:flex; gap:6px; flex-wrap:wrap; margin-top:7px;}
+  .chip{font-size:11px; padding:4px 9px; border-radius:11px; background:var(--panel-2); border:1px solid var(--border); color:var(--text-secondary);}
+  .chip.syn{background:var(--secondary-dim); border-color:var(--secondary); color:var(--secondary);}
+  .def-item{margin-bottom:10px;}
+  .def-pos{font-family:var(--mono); font-size:10px; color:var(--accent-strong); text-transform:uppercase; margin-bottom:2px; font-weight:700;}
+  .def-text{font-size:13.5px; color:var(--text); line-height:1.5;}
+  .def-example{font-size:12.5px; color:var(--text-tertiary); font-style:italic; margin-top:2px;}
+  .loading-row{display:flex; align-items:center; gap:8px; color:var(--text-tertiary); font-size:12.5px;}
+  .spinner{width:11px; height:11px; border-radius:50%; border:2px solid var(--border); border-top-color:var(--accent-strong); animation:spin .7s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .not-found{font-size:12.5px; color:var(--text-tertiary); line-height:1.6;}
+  .external-fallback{display:block; text-align:center; font-size:10.5px; color:var(--text-tertiary); margin-top:14px;}
+  .external-fallback a{color:var(--text-tertiary); text-decoration:underline;}
+  .press-hint{text-align:center; font-size:11px; color:var(--text-tertiary); padding:6px 0 2px;}
+
+  /* Vocab drawer */
+  .drawer-overlay{position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:60; opacity:0; pointer-events:none; transition:opacity .2s;}
+  .drawer-overlay.show{opacity:1; pointer-events:auto;}
+  .drawer{
+    position:fixed; top:0; right:0; bottom:0; width:88%; max-width:400px; background:var(--panel);
+    border-left:1px solid var(--border); transform:translateX(100%);
+    transition:transform .25s cubic-bezier(.2,.8,.2,1); display:flex; flex-direction:column; z-index:61;
+  }
+  .drawer-overlay.show .drawer{transform:translateX(0);}
+  .drawer-head{padding:16px 16px 10px; border-bottom:1px solid var(--border-soft); display:flex; justify-content:space-between; align-items:center;}
+  .drawer-head h2{font-size:15px; margin:0; font-weight:700;}
+  .study-btn{margin:12px 16px 4px; background:var(--accent); color:#052e18; border:none; border-radius:11px; padding:12px; font-weight:700; font-size:13px; cursor:pointer;}
+  .study-btn:disabled{opacity:.3; cursor:default;}
+  .drawer-body{flex:1; overflow-y:auto; padding:6px 14px;}
+  .vocab-item{padding:11px 4px; border-bottom:1px solid var(--border-soft); display:flex; justify-content:space-between; align-items:flex-start; gap:8px;}
+  .vocab-item .vw{font-weight:700; font-size:14px; color:var(--text);}
+  .vocab-item .vt{color:var(--accent-strong); font-size:12.5px; margin-top:2px; font-weight:600;}
+  .vocab-item .vd{color:var(--text-tertiary); font-size:11.5px; margin-top:3px; line-height:1.4;}
+  .vocab-del{color:var(--text-tertiary); font-size:15px; cursor:pointer; padding:2px 6px;}
+  .drawer-empty{color:var(--text-tertiary); font-size:12.5px; text-align:center; padding:60px 20px; line-height:1.9;}
+
+  /* Flashcards */
+  .study-overlay{
+    position:fixed; inset:0; background:var(--bg); z-index:80; display:flex; flex-direction:column;
+    transform:translateY(100%); transition:transform .28s cubic-bezier(.2,.8,.2,1);
+  }
+  .study-overlay.show{transform:translateY(0);}
+  .study-head{display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--border-soft);}
+  .study-progress{font-family:var(--mono); font-size:12px; color:var(--text-tertiary);}
+  .study-shuffle{background:var(--panel-2); border:1px solid var(--border); color:var(--text-secondary); border-radius:9px; padding:7px 11px; font-size:11.5px; cursor:pointer;}
+  .study-shuffle.active{border-color:var(--secondary); color:var(--secondary); background:var(--secondary-dim);}
+  .study-body{flex:1; display:flex; align-items:center; justify-content:center; padding:18px; min-height:0;}
+  .card{
+    width:100%; max-width:440px; min-height:320px; background:var(--panel-2);
+    border:1px solid var(--border); border-radius:18px; padding:24px 20px; cursor:pointer;
+    display:flex; flex-direction:column; overflow-y:auto; max-height:64vh; touch-action:pan-y;
+  }
+  .card-front{align-items:center; justify-content:center; text-align:center;}
+  .card-word{font-size:30px; font-weight:700;}
+  .card-phonetic{font-family:var(--mono); font-size:13px; color:var(--text-tertiary); margin-top:8px;}
+  .card-hint{margin-top:20px; font-size:11.5px; color:var(--text-tertiary);}
+  .card-back .cb-translation{font-size:23px; font-weight:700; color:var(--accent-strong);}
+  .meaning-block{margin-top:15px; padding-top:13px; border-top:1px solid var(--border-soft);}
+  .meaning-pos{font-family:var(--mono); font-size:10px; color:var(--accent-strong); text-transform:uppercase; margin-bottom:3px; font-weight:700;}
+  .meaning-def{font-size:13.5px; color:var(--text); line-height:1.5;}
+  .meaning-ex{font-size:12.5px; color:var(--text-tertiary); font-style:italic; margin-top:3px;}
+  .syn-row{display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;}
+  .study-footer{flex:0 0 auto; display:flex; gap:8px; padding:12px 18px calc(20px + env(safe-area-inset-bottom)); justify-content:center; flex-wrap:wrap;}
+  .study-action{border:1px solid var(--border); background:var(--panel-2); color:var(--text-secondary); border-radius:11px; padding:13px 28px; font-size:14px; font-weight:700; cursor:pointer; min-width:160px;}
+  .study-action.primary{border-color:var(--accent); color:var(--accent-strong); background:var(--accent-dim);}
+  .study-action.flash{animation:studyFlash .26s ease-in-out; background:var(--accent); border-color:var(--accent); color:#052e18;}
+  @keyframes studyFlash{0%,100%{opacity:1;} 50%{opacity:.4;}}
+  .study-empty{color:var(--text-tertiary); text-align:center; padding:40px 20px; font-size:13px; line-height:1.9;}
+
+  .toast{
+    position:fixed; bottom:calc(90px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--panel-2); border:1px solid var(--border); color:var(--text);
+    padding:10px 16px; border-radius:10px; font-size:12.5px;
+    opacity:0; transition:opacity .2s, transform .2s; z-index:90; pointer-events:none; max-width:88%; text-align:center;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="mark">SP</div>
+    <h1>SyncPod</h1>
+  </div>
+  <button class="vocab-toggle" id="vocabToggle">📖 Defter <span class="count" id="vocabCount">0</span></button>
+</header>
+<div class="now-playing-bar">
+  <div class="now-playing empty" id="nowPlaying">Kitaplıktan bir parça seç (☰)</div>
+</div>
+<div class="mode-tabs">
+  <button class="mode-tab active" id="modeTabPodcast">🎧 Podcast</button>
+  <button class="mode-tab" id="modeTabVideo">▶ Video</button>
+</div>
+<div class="stage" id="stage">
+  <div class="video-wrap" id="videoWrap">
+    <div class="video-frame-box">
+      <video id="localVideo" playsinline style="position:absolute; inset:0; width:100%; height:100%; background:#000;"></video>
+      <div class="video-empty" id="videoEmpty">☰ menüsünden bir video dosyası ve söz (.lrc) dosyası ekle.</div>
+    </div>
+  </div>
+  <div class="splitter" id="videoSplitter"><div class="splitter-grip"></div></div>
+
+  <main>
+    <div class="readout">
+      <button class="immersive-toggle" id="focusToggleBtn" title="Sade görünüm">⛶</button>
+      <div class="readout-body" id="readoutBody">
+        <div class="empty-state" id="emptyState">
+          ▸ Sol alttaki ☰ menüsünden ses ve<br>söz (.lrc) dosyalarını ekle.<br><br>
+          Bir kelimeyi anlamak için üzerine<br>basılı tut. Kelimeleri defterine<br>ekleyip kartlarla çalışabilirsin.
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="bottom-bar">
+  <div class="time-row"><span class="cur" id="curTime">00:00</span><span id="durTime">00:00</span></div>
+  <input type="range" id="seekBar" min="0" max="100" value="0" step="0.1">
+
+  <div class="controls-row">
+    <div class="ctrl-item ctrl-skip"><button class="ctrl-btn" id="backBtn">⟲</button><span class="ctrl-label">5sn Geri</span></div>
+    <div class="ctrl-item"><button class="ctrl-btn" id="prevLineBtn">⏮</button><span class="ctrl-label">Önceki Satır</span></div>
+    <div class="ctrl-item"><div class="play-placeholder" id="playPlaceholder"></div><span class="ctrl-label">Oynat/Duraklat</span></div>
+    <div class="ctrl-item"><button class="ctrl-btn" id="nextLineBtn">⏭</button><span class="ctrl-label">Sonraki Satır</span></div>
+    <div class="ctrl-item ctrl-skip"><button class="ctrl-btn" id="fwdBtn">⟳</button><span class="ctrl-label">5sn İleri</span></div>
+  </div>
+
+  <div class="utility-row">
+    <button class="menu-fab" id="menuFab" title="Kitaplık ve ayarlar">☰</button>
+    <div class="track-nav-group">
+      <button class="pl-ctrl-btn" id="npPrevBtn" title="Önceki parça">⏮</button>
+      <button class="pl-ctrl-btn" id="loopBtn" title="Döngü kapalı">↻</button>
+      <button class="pl-ctrl-btn" id="npNextBtn" title="Sonraki parça">⏭</button>
+    </div>
+    <button class="speed-fab" id="speedPillBtn" title="Oynatma Hızı"><span id="speedPillValue">1.0×</span></button>
+  </div>
+</div>
+
+<button class="play-fab" id="playFab">▶</button>
+<button class="zoom-lock-btn" id="zoomLockBtn" title="Yatay kaydırmayı kilitle">🔓</button>
+
+<audio id="audio" preload="auto"></audio>
+
+<!-- Library sheet: add files, playlist, settings entry -->
+<div class="sheet-overlay" id="libraryOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head"><h2>Kitaplık</h2><span class="close-x" id="closeLibrary">✕</span></div>
+
+    <button class="menu-row" id="addAudioBtn">🎧 Ses Dosyaları Ekle</button>
+    <button class="menu-row" id="addLrcBtn">📝 Söz Dosyaları Ekle</button>
+    <div class="lib-hint">Aynı isimli ses ve .lrc dosyaları otomatik eşleşir. Birden çok dosyayı aynı anda seçebilirsin.</div>
+    <input type="file" id="audioMultiInput" accept="audio/*,.m4a,.m4b,.mp3,.wav,.ogg,.oga,.flac,.aac,.opus,.webm,.wma" multiple hidden>
+    <input type="file" id="lrcMultiInput" accept=".lrc,.txt" multiple hidden>
+    <input type="file" id="relinkAudioInput" accept="audio/*,.m4a,.m4b,.mp3,.wav,.ogg,.oga,.flac,.aac,.opus,.webm,.wma" hidden>
+    <input type="file" id="relinkLrcInput" accept=".lrc,.txt" hidden>
+
+    <div class="set-label" style="margin-top:6px;">Oynatma Listesi</div>
+    <div id="playlistBody"></div>
+    <button class="save-playlist-btn" id="savePlaylistBtn">💾 Listeyi Kaydet</button>
+
+    <div class="set-label" style="margin-top:16px;">Video Listesi</div>
+    <button class="menu-row" id="addVideoBtn">🎬 Video Dosyaları Ekle</button>
+    <button class="menu-row" id="addVideoLrcMultiBtn">📝 Video Sözleri Ekle</button>
+    <div class="lib-hint" style="margin-top:0;">Aynı isimli video ve .lrc dosyaları otomatik eşleşir. Birden çok dosya seçebilirsin.</div>
+    <input type="file" id="videoMultiInput" accept="video/*,.mp4,.m4v,.mkv,.mov,.avi,.webm,.wmv,.flv,.3gp,.3g2,.ts,.mts,.m2ts,.ogv,application/octet-stream" multiple hidden>
+    <input type="file" id="videoLrcMultiInput" accept=".lrc,.txt" multiple hidden>
+    <input type="file" id="relinkVideoInput" accept="video/*,.mp4,.m4v,.mkv,.mov,.avi,.webm,.wmv,.flv,.3gp,.3g2,.ts,.mts,.m2ts,.ogv,application/octet-stream" hidden>
+    <input type="file" id="relinkVideoLrcInput" accept=".lrc,.txt" hidden>
+    <div id="videoPlaylistBody"></div>
+    <button class="save-playlist-btn" id="saveVideoPlaylistBtn">💾 Video Listesini Kaydet</button>
+    <div class="lib-hint" id="videoStatusHint" style="margin-top:8px;">Henüz video seçilmedi.</div>
+
+    <button class="menu-row" id="openSettingsFromLibrary" style="margin-top:16px;">⚙︎ Ayarlar</button>
+  </div>
+</div>
+
+<!-- Speed sheet -->
+<div class="sheet-overlay" id="speedOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head"><h2>Oynatma Hızı</h2><span class="close-x" id="closeSpeed">✕</span></div>
+    <div class="speed-sheet-label"><span>Hız</span><span id="speedValue">1.00×</span></div>
+    <div class="speed-stepper">
+      <button class="speed-step-btn" id="speedDownBtn" aria-label="Hızı azalt">−</button>
+      <input type="range" id="speedSlider" min="0.5" max="2" step="0.05" value="1">
+      <button class="speed-step-btn" id="speedUpBtn" aria-label="Hızı artır">+</button>
+    </div>
+    <div class="tick-track" id="tickTrack"></div>
+    <div class="tick-labels" id="tickLabels"></div>
+  </div>
+</div>
+
+<!-- Settings sheet -->
+<div class="sheet-overlay" id="settingsOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head"><h2>Ayarlar</h2><span class="close-x" id="closeSettings">✕</span></div>
+
+    <div class="set-label">Görünüm</div>
+    <div class="set-group">
+      <div class="set-label" style="text-transform:none; font-size:11px; font-weight:600; color:var(--text-secondary);">Yazı Tipi</div>
+      <div class="set-options" id="fontOptions">
+        <button class="set-opt" data-font="sans">Sans</button>
+        <button class="set-opt" data-font="serif">Serif</button>
+        <button class="set-opt" data-font="rounded">Yuvarlak</button>
+        <button class="set-opt" data-font="mono">Mono</button>
+      </div>
+    </div>
+    <div class="set-group">
+      <div class="set-label" style="text-transform:none; font-size:11px; font-weight:600; color:var(--text-secondary);">Yazı Boyutu (Aktif Satır)</div>
+      <div class="set-options" id="sizeOptions">
+        <button class="set-opt" data-size="22">Küçük</button>
+        <button class="set-opt" data-size="26">Orta</button>
+        <button class="set-opt" data-size="31">Büyük</button>
+        <button class="set-opt" data-size="37">Çok Büyük</button>
+      </div>
+    </div>
+    <div class="set-group">
+      <div class="set-label" style="text-transform:none; font-size:11px; font-weight:600; color:var(--text-secondary);">Hizalama</div>
+      <div class="set-options" id="alignOptions">
+        <button class="set-opt" data-align="left">Sola Yaslı</button>
+        <button class="set-opt" data-align="center">Ortalı</button>
+      </div>
+    </div>
+
+    <div class="set-label" style="margin-top:6px;">Ses Dengeleyici (EQ)</div>
+    <div class="set-group">
+      <div class="set-options" id="eqOptions">
+        <button class="set-opt active" data-eq="off">Kapalı</button>
+        <button class="set-opt" data-eq="bass">Bas</button>
+        <button class="set-opt" data-eq="treble">Tiz</button>
+        <button class="set-opt" data-eq="vocal">Vokal</button>
+        <button class="set-opt" data-eq="speech">Konuşma</button>
+        <button class="set-opt" data-eq="podcast">Podcast</button>
+        <button class="set-opt" data-eq="live">Canlı</button>
+        <button class="set-opt" data-eq="bright">Parlak</button>
+        <button class="set-opt" data-eq="warm">Sıcak</button>
+      </div>
+    </div>
+
+    <div class="set-label" style="margin-top:6px;">Kelime Anlamı</div>
+    <div class="set-group">
+      <label class="toggle-row">
+        <div><div class="toggle-row-label">Anlam Baloncuğu</div><div class="toggle-row-sub">Deftere kayıtlı bir kelimeye dokununca anlamını 1-2 sn göster</div></div>
+        <span class="switch"><input type="checkbox" id="bubbleToggle"><span class="track"><span class="thumb"></span></span></span>
+      </label>
+      <label class="toggle-row">
+        <div><div class="toggle-row-label">Sözlük Açılınca Oynatmayı Durdur</div><div class="toggle-row-sub">Panel kapanınca kaldığı yerden devam eder</div></div>
+        <span class="switch"><input type="checkbox" id="pauseOnDictToggle"><span class="track"><span class="thumb"></span></span></span>
+      </label>
+    </div>
+
+    <div class="set-label" style="margin-top:6px;">Kelime Defteri</div>
+    <div class="set-group">
+      <div class="set-label" style="text-transform:none; font-size:11px; font-weight:600; color:var(--text-secondary);">"Öğrendim" Butonuna Basınca</div>
+      <div class="set-options" id="learnedOptions">
+        <button class="set-opt" data-learned="delete">Defterden Sil</button>
+        <button class="set-opt" data-learned="archive">Öğrenilenlere Taşı</button>
+      </div>
+    </div>
+    <button class="menu-row" id="viewLearnedBtn">✓ Öğrenilenler (<span id="learnedCount">0</span>)</button>
+
+    <div class="set-label" style="margin-top:6px;">Yedekleme</div>
+    <div class="lib-hint">Oynatma listesi, sözler, kelime defteri ve tüm ayarlar dahildir. Ses dosyalarının kendisi yedeklenemez (tarayıcı kısıtı) — geri yüklerken tekrar seçmen gerekir.</div>
+    <button class="menu-row" id="exportBackupBtn">⬇️ Yedek Al (İndir)</button>
+    <button class="menu-row" id="importBackupBtn">⬆️ Yedekten Geri Yükle</button>
+    <input type="file" id="importBackupInput" accept="application/json,.json" hidden>
+
+    <div class="set-label" style="margin-top:6px;">Cihazlar Arası Senkronizasyon</div>
+    <div class="lib-hint">Oynatma listeleri, kelime defteri ve tüm ayarlar bir kodla diğer cihazına aktarılır. Ses/video dosyalarının kendisi senkronize edilmez.</div>
+    <div id="fbConnectPanel">
+      <button class="menu-row" id="fbCreateBtn">🔑 Yeni Kod Oluştur (bu cihazdan)</button>
+      <input type="text" id="fbCodeInput" placeholder="6 haneli kodu gir" maxlength="6" style="width:100%; box-sizing:border-box; background:var(--panel-2); border:1px solid var(--border); border-radius:10px; padding:11px 13px; color:var(--text); font-size:13px; margin:9px 0; text-transform:uppercase; letter-spacing:2px; text-align:center;">
+      <button class="menu-row" id="fbConnectBtn">🔗 Koda Bağlan</button>
+    </div>
+    <div id="fbConnectedPanel" style="display:none;">
+      <div class="lib-hint" style="margin-top:0;">Kod: <strong id="fbCodeDisplay" style="letter-spacing:2px; color:var(--text);"></strong> — bu kodu diğer cihazına da gir.</div>
+      <button class="menu-row" id="fbPushBtn">⬆️ Buluta Yükle</button>
+      <button class="menu-row" id="fbPullBtn">⬇️ Buluttan İndir</button>
+      <button class="menu-row" id="fbAutoSyncBtn">🔄 Otomatik Senkron: Kapalı</button>
+      <button class="menu-row" id="fbDisconnectBtn">🔌 Bağlantıyı Kes</button>
+    </div>
+    <div class="lib-hint" id="fbStatus" style="margin-top:8px;"></div>
+  </div>
+</div>
+
+<!-- Learned words (archived) sheet -->
+<div class="sheet-overlay" id="learnedOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head"><h2>Öğrenilenler</h2><span class="close-x" id="closeLearned">✕</span></div>
+    <div id="learnedBody"></div>
+  </div>
+</div>
+
+<!-- Multi-line selection translate bar -->
+<div class="sheet-overlay" id="selectionOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+      <h2 id="selectionCount">0 cümle seçildi</h2>
+      <span class="close-x" id="closeSelection">✕</span>
+    </div>
+    <div class="wsec-label">Seçilen Metin</div>
+    <div class="selection-original" id="selectionOriginal"></div>
+    <div class="wsec" style="margin-top:14px;">
+      <div class="wsec-label">Çeviri</div>
+      <div id="selectionTranslation"><div class="loading-row"><span class="spinner"></span> çevriliyor…</div></div>
+    </div>
+    <button class="menu-row" id="clearSelectionBtn" style="margin-top:16px; text-align:center; color:var(--danger);">Seçimi Temizle</button>
+  </div>
+</div>
+
+<div class="selection-chip" id="selectionChip">
+  <span>[<span id="selectionChipCount">0</span>] Anlamı Göster</span>
+  <span class="chip-x" id="selectionChipClose">✕</span>
+</div>
+
+<div class="word-bubble" id="wordBubble"></div>
+
+<!-- Word lookup sheet -->
+<div class="sheet-overlay" id="wordOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+      <div>
+        <div class="word-title" id="wordTitle">—</div>
+        <div class="word-phonetic" id="wordPhonetic"></div>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button class="save-btn" id="saveBtn">☆ Deftere Ekle</button>
+        <span class="close-x" id="closeWord">✕</span>
+      </div>
+    </div>
+
+    <div class="wsec">
+      <div class="wsec-label">Çeviri</div>
+      <div id="quickTranslationArea"><div class="loading-row"><span class="spinner"></span> çevriliyor…</div></div>
+    </div>
+
+    <div class="wsec">
+      <div class="wsec-label">Tanım · Kullanım · Eş Anlamlılar</div>
+      <div id="definitionArea"><div class="loading-row"><span class="spinner"></span> aranıyor…</div></div>
+    </div>
+
+    <span class="external-fallback">Sorun mu yaşıyorsun? <a id="translateFallbackLink" href="#" target="_blank" rel="noopener">Google Translate'i yeni sekmede aç</a></span>
+  </div>
+</div>
+
+<!-- Vocab drawer -->
+<div class="drawer-overlay" id="drawerOverlay">
+  <div class="drawer">
+    <div class="drawer-head"><h2>Kelime Defteri</h2><span class="close-x" id="closeDrawer">✕</span></div>
+    <button class="study-btn" id="studyBtn" disabled>🃏 Kart Çalışmasına Başla</button>
+    <div class="drawer-body" id="drawerBody">
+      <div class="drawer-empty">Henüz kelime kaydedilmedi.<br>Bir kelimeye basılı tutup<br>açılan panelden "Deftere Ekle"ye bas.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Flashcard study -->
+<div class="study-overlay" id="studyOverlay">
+  <div class="study-head">
+    <span class="close-x" id="closeStudy">✕</span>
+    <span class="study-progress" id="studyProgress">0 / 0</span>
+    <button class="study-shuffle" id="shuffleBtn">🔀 Karıştır</button>
+  </div>
+  <div class="study-body" id="studyBody"></div>
+  <div class="study-footer" id="studyFooter"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  // Storage backend: prefer the Claude artifact-preview's injected window.storage when
+  // present; otherwise (this file opened standalone/downloaded, which is the normal way
+  // people use SyncPod) fall back to localStorage so data actually persists.
+  const storage = (function(){
+    const hasNative = typeof window.storage === 'object' && window.storage && typeof window.storage.get === 'function' && typeof window.storage.set === 'function';
+    const PREFIX = 'syncpod:';
+    return {
+      async get(key, shared){
+        if(hasNative){
+          try{ return await window.storage.get(key, shared); }catch(e){ /* fall through to localStorage */ }
+        }
+        try{
+          const v = localStorage.getItem(PREFIX+key);
+          return v===null ? null : {key, value:v, shared:!!shared};
+        }catch(e){ return null; }
+      },
+      async set(key, value, shared){
+        if(hasNative){
+          try{ return await window.storage.set(key, value, shared); }catch(e){ /* fall through */ }
+        }
+        localStorage.setItem(PREFIX+key, value);
+        return {key, value, shared:!!shared};
+      }
+    };
+  })();
+
+  const audio = document.getElementById('audio');
+  const readoutBody = document.getElementById('readoutBody');
+  // Podcast and Video each keep their own LRC array — loading one must never touch the
+  // other's. `activeLrcLines()` is the single point every shared function reads
+  // through, so which array is "live" always tracks the current mode automatically.
+  let podcastLrcLines = [];
+  let videoLrcLines = [];
+  function activeLrcLines(){ return isVideoMode() ? videoLrcLines : podcastLrcLines; }
+  // lineEls is intentionally sparse: only indices currently in the DOM are populated
+  // (see the virtualized rendering block around renderLyrics/buildWindow below). Reading
+  // lineEls[idx] for an index outside the rendered window correctly yields undefined.
+  let lineEls = [];
+  let currentLineIdx = -1;
+  // ===== Virtualized LRC rendering =====
+  // Long files (multi-hour videos with 100+ page LRCs, sometimes tens of thousands of
+  // lines) used to be rendered as one giant DOM tree — every line AND every word inside
+  // it got its own element plus its own hold/press listeners and closures. That's fine
+  // for a normal song but for a huge file it's tens of thousands of nodes and hundreds
+  // of thousands of live closures sitting in memory for the whole session, which is what
+  // was producing the growing-RAM stutter/jitter over a long playback. Only a small
+  // window of lines around the active one is now ever actually in the DOM; the rest of
+  // the file is represented by two plain spacer divs sized to match, so scroll height
+  // and centering behave exactly as before.
+  const RENDER_RADIUS = 80;   // lines kept rendered on each side of the active line
+  const SLIDE_MARGIN = 20;    // start sliding the window this many lines before its edge
+  const MAX_RENDERED = RENDER_RADIUS * 4; // hard cap on simultaneously-rendered lines
+  let winStart = 0, winEnd = -1; // inclusive range of activeLrcLines() currently in the DOM
+  let topSpacerH = 0, bottomSpacerH = 0;
+  let avgLineHeight = 52; // running estimate, refined from real measurements as we go
+  let vocab = [];
+  let audioLoaded = false;
+  let selectedLines = [];
+  let appSettings = {showBubble:true, pauseOnDict:false, learnedAction:'delete'};
+  const WORD_HOLD_MS = 500;
+  let mode = 'podcast'; // 'podcast' | 'video'
+  let videoTitle = '', videoLrcText = '';
+  let videoReady = false;
+  const localVideo = document.getElementById('localVideo');
+  let videoZoomReset = null; // set once setupVideoZoom() runs; called when a new video loads
+
+  // ================= Unified media abstraction =================
+  // Every shared LRC/vocab function below (seek, active-line tracking, transport
+  // buttons, mediaSession, etc.) talks to the *active* player through these few
+  // functions instead of touching <audio>/<video> directly, so the exact same code
+  // path drives both Podcast (audio) and Video (local file) modes.
+  function isVideoMode(){ return mode === 'video'; }
+  function mediaIsReady(){ return isVideoMode() ? videoReady : audioLoaded; }
+  function getCurrentTime(){ return isVideoMode() ? (localVideo.currentTime||0) : audio.currentTime; }
+  function getDuration(){ return isVideoMode() ? (localVideo.duration||0) : (audio.duration||0); }
+  function isPaused(){ return isVideoMode() ? localVideo.paused : audio.paused; }
+  function mediaPause(){ if(isVideoMode()) localVideo.pause(); else audio.pause(); }
+  function mediaSeek(t){ if(isVideoMode()) localVideo.currentTime = t; else audio.currentTime = t; }
+
+  // ================= Helpers =================
+  function fmtTime(s){
+    if(!isFinite(s) || s<0) s=0;
+    const m = Math.floor(s/60), sec = Math.floor(s%60);
+    return String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');
+  }
+  function showToast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(showToast._tm);
+    showToast._tm = setTimeout(()=>t.classList.remove('show'), 2400);
+  }
+  // Picking a file from a cloud provider (Google Drive, etc.) through the system file
+  // picker sometimes comes back as a hollow placeholder instead of the real file —
+  // Android/Chrome has to download the remote content first, and if that step is skipped
+  // or fails (large video, slow connection, provider doesn't support direct access), the
+  // <input type=file> still fires 'change' but hands back a File that reports 0 bytes.
+  // The app used to just treat that as "a file", store it, and silently do nothing useful
+  // with it — which looked exactly like "I picked the video and it still says I need to
+  // pick one." A real cancel (no picker selection at all) is left alone here since that's
+  // normal and shouldn't nag the user.
+  function isUsableFile(f){ return !!f && f.size > 0; }
+  function explainBadPick(kind){
+    showToast((kind==='video' ? 'Video' : 'Ses dosyası')+' alınamadı. Drive gibi bir yerden seçtiysen önce cihaza indirip tekrar dene.');
+  }
+  function cleanWord(raw){ return raw.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu,'').toLowerCase(); }
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function stemOf(name){ return String(name||'').replace(/\.[^.]+$/,'').toLowerCase().trim(); }
+  function makeId(){ return 't'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+
+  // ================= LRC parsing =================
+  function parseLRC(text){
+    // Minute group is unbounded (\d{1,}) rather than capped at two digits — LRC files
+    // for anything over ~100 minutes use 3+ digit minute tags like [106:15.00], and a
+    // \d{1,2} cap made those tags fail to match at all, silently dropping every line
+    // past the 100-minute mark from the parsed array (not a scroll/render bug — those
+    // lines never existed in `lrcLines` to begin with).
+    const timeTag = /\[(\d{1,}):(\d{2})(?:[.:](\d{1,3}))?\]/g;
+    const out = [];
+    text.split(/\r?\n/).forEach(line=>{
+      const tags = [...line.matchAll(timeTag)];
+      if(!tags.length) return;
+      const content = line.replace(timeTag,'').trim();
+      if(!content) return;
+      tags.forEach(t=>{
+        const min = parseInt(t[1],10), sec = parseInt(t[2],10);
+        const msRaw = t[3] || '0';
+        const ms = parseInt(msRaw.padEnd(3,'0').slice(0,3),10);
+        out.push({time: min*60+sec+ms/1000, text: content});
+      });
+    });
+    out.sort((a,b)=>a.time-b.time);
+    return out;
+  }
+
+  // ================= Word interaction =================
+  // Short tap on a word already in the notebook -> instant bubble (no network).
+  // Long-press a word, then (optionally) drag left/right before releasing to extend
+  // the selection to neighboring words in the same line -> a phrase. The lookup sheet
+  // opens only on release (not while still held), showing the phrase's translation.
+  function getGesturePoint(e){
+    if(e.touches && e.touches.length) return {x:e.touches[0].clientX, y:e.touches[0].clientY};
+    if(e.changedTouches && e.changedTouches.length) return {x:e.changedTouches[0].clientX, y:e.changedTouches[0].clientY};
+    return {x:e.clientX, y:e.clientY};
+  }
+
+  // ================= Centralized gesture tracker =================
+  // Each word/line used to add its own temporary document-level listeners per press and
+  // remove them again on release. If cleanup ever missed a beat (and on this browser it
+  // sometimes did), those listeners kept piling up — so a tap could get "caught" by a
+  // stale handler from several taps ago and fire late, jumping to the wrong line. Routing
+  // every gesture through one shared dispatcher makes that class of bug impossible: there
+  // is only ever one active gesture, full stop.
+  let activeGesture = null;
+  let lastGestureTouchAt = 0;
+  function gestureBegin(e, handlers, opts){
+    if(e.type==='mousedown' && performance.now()-lastGestureTouchAt<800) return false;
+    if(e.type==='touchstart'){
+      lastGestureTouchAt = performance.now();
+      if((!opts || opts.preventStart!==false) && e.cancelable) e.preventDefault();
+    }
+    activeGesture = handlers;
+    return true;
+  }
+  function gestureEndActive(fn){
+    const g = activeGesture;
+    activeGesture = null;
+    if(g && g[fn]) g[fn]();
+  }
+  document.addEventListener('touchmove', e=>{ if(activeGesture && activeGesture.onMove) activeGesture.onMove(e); }, {passive:false});
+  document.addEventListener('mousemove', e=>{ if(activeGesture && activeGesture.onMove) activeGesture.onMove(e); });
+  document.addEventListener('touchend', ()=> gestureEndActive('onEnd'));
+  document.addEventListener('mouseup', ()=> gestureEndActive('onEnd'));
+  document.addEventListener('touchcancel', ()=> gestureEndActive('onCancel'));
+
+  function attachWordPress(span, word, lineWordSpans, wordIdx, lineIdx, ln, row){
+    let holdTimer = null, holding = false, moved = false, startX=0, startY=0;
+    let selStart = wordIdx, selEnd = wordIdx, lastAppliedPhrase = '';
+    const TOL = 22;
+
+    function currentPhraseText(){
+      return lineWordSpans.slice(selStart, selEnd+1).map(s=>s.dataset.clean).filter(Boolean).join(' ').trim();
+    }
+    function clearHighlight(){
+      lineWordSpans.forEach(s=> s.classList.remove('pressing'));
+    }
+    function applyHighlight(){
+      clearHighlight();
+      for(let i=selStart;i<=selEnd;i++){ if(lineWordSpans[i]) lineWordSpans[i].classList.add('pressing'); }
+    }
+    // A plain, independent timer — not tied to the CSS fill animation's own completion
+    // event. Approximate sync with the visual fill is enough; what matters is that this
+    // timer is simple and predictable regardless of how any particular browser handles
+    // transitionend.
+    function startCharge(){
+      span.classList.remove('charging');
+      span.style.transitionDuration = WORD_HOLD_MS+'ms';
+      void span.offsetWidth; // force reflow so the restart from 0% is actually registered
+      span.classList.add('charging');
+      holdTimer = setTimeout(commitHold, WORD_HOLD_MS);
+    }
+    function cancelCharge(){
+      if(holdTimer){ clearTimeout(holdTimer); holdTimer=null; }
+      span.style.transitionDuration = '120ms';
+      span.classList.remove('charging');
+    }
+    function commitHold(){
+      if(holding) return;
+      if(holdTimer){ clearTimeout(holdTimer); holdTimer=null; }
+      holding = true;
+      span.classList.remove('charging');
+      applyHighlight();
+      // Only now — once we're sure this is a deliberate hold, not a scroll — do we
+      // block the browser's own panning, so it can extend the selection sideways
+      // instead of scrolling the page. Doing this any earlier (right on touchstart)
+      // was blocking normal vertical scrolling from ever starting on a word at all.
+      span.style.touchAction = 'none';
+      if(navigator.vibrate) try{ navigator.vibrate(12); }catch(err){}
+      lastAppliedPhrase = currentPhraseText();
+      if(lastAppliedPhrase){
+        openWordSheet(lastAppliedPhrase, false);
+        // Once triggered, the sheet must stay open no matter what the hand does next —
+        // slow network, a lingering finger, an accidental drag onto the backdrop, none
+        // of it should be able to close it. Making the backdrop pass touches straight
+        // through for the rest of this gesture also means a sideways drag can still see
+        // (and select) the words underneath the now-open sheet, instead of hitting the
+        // sheet itself.
+        wordOverlay.classList.add('gesture-through');
+      }
+    }
+
+    function onMove(e){
+      const p = getGesturePoint(e);
+      if(!holding){
+        if(Math.abs(p.x-startX)>TOL || Math.abs(p.y-startY)>TOL){
+          moved = true;
+          markUserScrolling();
+          cancelCharge();
+        }
+        return;
+      }
+      if(e.cancelable) e.preventDefault();
+      const el = document.elementFromPoint(p.x, p.y);
+      if(el && el.classList && el.classList.contains('word')){
+        const idx2 = lineWordSpans.indexOf(el);
+        if(idx2>=0){
+          selStart = Math.min(wordIdx, idx2);
+          selEnd = Math.max(wordIdx, idx2);
+          applyHighlight();
+          const phrase = currentPhraseText();
+          if(phrase && phrase !== lastAppliedPhrase){
+            lastAppliedPhrase = phrase;
+            openWordSheet(phrase, true); // sheet is already open — this just refreshes it
+          }
+        }
+      }
+    }
+    function onEnd(){
+      span.style.touchAction = 'manipulation';
+      if(holding){
+        // Small delay before the sheet becomes clickable again — long enough to absorb
+        // the browser's own synthetic click that follows a touch release, so it can't
+        // land on the (now uncovered) backdrop and close the sheet we just opened.
+        setTimeout(()=>{ wordOverlay.classList.remove('gesture-through'); }, 150);
+      }
+      finishPress();
+    }
+    function onCancel(){
+      span.style.touchAction = 'manipulation';
+      wordOverlay.classList.remove('gesture-through');
+      cancelCharge(); clearHighlight(); holding=false; moved=false;
+    }
+
+    function begin(e){
+      if(!gestureBegin(e, {onMove, onEnd, onCancel}, {preventStart:false})) return;
+      const p = getGesturePoint(e);
+      holding = false; moved = false;
+      selStart = wordIdx; selEnd = wordIdx; lastAppliedPhrase = '';
+      startX = p.x; startY = p.y;
+      startCharge();
+    }
+    span.addEventListener('touchstart', begin, {passive:true});
+    span.addEventListener('mousedown', begin);
+
+    function finishPress(){
+      const wasHolding = holding;
+      cancelCharge();
+      if(wasHolding){
+        // The sheet was already opened the instant the word turned green (and kept live
+        // during any drag) — releasing just settles the highlight, nothing left to open.
+        clearHighlight();
+        holding = false; moved = false;
+      }else{
+        if(!moved){
+          let bubbleShown = false;
+          if(!selectedLines.length && appSettings.showBubble){
+            const saved = vocab.find(v=>v.word===word);
+            if(saved && saved.translation){
+              const alts = (saved.translationsAlt||[]).slice(0,2);
+              const text = alts.length ? saved.translation+' · '+alts.join(' · ') : saved.translation;
+              showWordBubble(span, text);
+              bubbleShown = true;
+            }
+          }
+          // A tap that just opened the meaning bubble for an already-saved word is
+          // its own complete action — it must not also jump playback to this line.
+          if(!bubbleShown) handleLineShortTap(lineIdx, ln, row);
+        }
+        holding = false; moved = false;
+      }
+    }
+    span.addEventListener('contextmenu', e=> e.preventDefault());
+  }
+
+  function showWordBubble(span, text){
+    const bubble = document.getElementById('wordBubble');
+    bubble.textContent = text;
+    const r = span.getBoundingClientRect();
+    bubble.style.visibility = 'hidden';
+    bubble.classList.add('show');
+    const bw = bubble.offsetWidth, bh = bubble.offsetHeight;
+    bubble.classList.remove('show');
+    bubble.style.visibility = '';
+    let left = r.left + r.width/2 - bw/2;
+    left = Math.max(8, Math.min(window.innerWidth - bw - 8, left));
+    let top = r.top - bh - 10;
+    if(top < 8) top = r.bottom + 10;
+    bubble.style.left = left+'px';
+    bubble.style.top = top+'px';
+    bubble.classList.add('show');
+    clearTimeout(showWordBubble._tm);
+    showWordBubble._tm = setTimeout(()=> bubble.classList.remove('show'), 4000);
+  }
+
+  // ================= Multi-line selection: double-tap the first line (pauses
+  // playback), then a single tap on any other line adds it too — in the order
+  // tapped. A small chip (not a blocking sheet) appears near the last line you
+  // toggled; tapping the chip itself opens the translation. =================
+  let wasPlayingBeforeSelection = false;
+  function toggleLineSelection(idx, ln, row){
+    const pos = selectedLines.findIndex(s=>s.idx===idx);
+    if(pos>=0){
+      selectedLines.splice(pos,1);
+      row.classList.remove('selected');
+    }else{
+      if(selectedLines.length===0){
+        wasPlayingBeforeSelection = !isPaused();
+        if(!isPaused()) mediaPause();
+      }
+      selectedLines.push({idx, text: ln.text});
+      row.classList.add('selected');
+    }
+    updateSelectionChip(row);
+  }
+
+  async function fetchTextTranslation(text){
+    try{
+      const url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=tr&dt=t&q='+encodeURIComponent(text);
+      const r = await fetch(url);
+      if(!r.ok) throw new Error('bad status');
+      const d = await r.json();
+      const t = (d[0]||[]).map(seg=>seg[0]).join('');
+      if(t) return t;
+      throw new Error('empty');
+    }catch(err){
+      try{
+        const r2 = await fetch('https://api.mymemory.translated.net/get?q='+encodeURIComponent(text)+'&langpair=en|tr');
+        const d2 = await r2.json();
+        return d2?.responseData?.translatedText || '';
+      }catch(e2){ return ''; }
+    }
+  }
+
+  function updateSelectionChip(anchorRow){
+    const chip = document.getElementById('selectionChip');
+    if(!selectedLines.length){
+      chip.classList.remove('show');
+      return;
+    }
+    document.getElementById('selectionChipCount').textContent = selectedLines.length;
+    const r = anchorRow.getBoundingClientRect();
+    const chipW = 176, chipH = 40;
+    // Right-aligned to the reading area, not the (left-aligned) line's own edge — a
+    // short line's text only spans part of the width, and anchoring to its left edge
+    // could sit the chip right on top of it, blocking further selection taps.
+    let left = window.innerWidth - chipW - 56;
+    left = Math.max(8, left);
+    let top = r.bottom + 6;
+    top = Math.min(window.innerHeight - chipH - 8, top);
+    chip.style.left = left+'px';
+    chip.style.top = top+'px';
+    chip.classList.add('show');
+  }
+
+  let selectionRequestId = 0;
+  async function openSelectionSheet(){
+    if(!selectedLines.length) return;
+    const overlay = document.getElementById('selectionOverlay');
+    overlay.classList.add('show');
+    document.getElementById('selectionCount').textContent = selectedLines.length+' cümle seçildi';
+    const display = selectedLines.map(s=>s.text).join('\n');
+    // Joining with a newline for the translation request makes the engine treat each
+    // fragment as a separate sentence and silently insert a period between them — which
+    // then changes the meaning of what's actually one continuous sentence split across
+    // LRC timestamps. A plain space keeps it as one sentence for translation purposes.
+    const forTranslation = selectedLines.map(s=>s.text.trim()).join(' ');
+    document.getElementById('selectionOriginal').textContent = display;
+    document.getElementById('selectionTranslation').innerHTML = '<div class="loading-row"><span class="spinner"></span> çevriliyor…</div>';
+    const reqId = ++selectionRequestId;
+    const translated = await fetchTextTranslation(forTranslation);
+    if(reqId !== selectionRequestId) return;
+    document.getElementById('selectionTranslation').textContent = translated || 'Çeviri alınamadı.';
+  }
+  document.getElementById('selectionChipClose').addEventListener('click', (e)=>{
+    e.stopPropagation();
+    clearSelection();
+  });
+  document.getElementById('selectionChip').addEventListener('click', ()=>{
+    openSelectionSheet();
+  });
+
+  function clearSelection(){
+    selectedLines.forEach(s=>{ if(lineEls[s.idx]) lineEls[s.idx].classList.remove('selected'); });
+    selectedLines = [];
+    document.getElementById('selectionChip').classList.remove('show');
+    document.getElementById('selectionOverlay').classList.remove('show');
+    if(wasPlayingBeforeSelection) safePlay();
+    wasPlayingBeforeSelection = false;
+  }
+  document.getElementById('closeSelection').addEventListener('click', ()=>{
+    document.getElementById('selectionOverlay').classList.remove('show');
+  });
+  document.getElementById('clearSelectionBtn').addEventListener('click', clearSelection);
+  document.getElementById('selectionOverlay').addEventListener('click', e=>{
+    if(e.target.id==='selectionOverlay') document.getElementById('selectionOverlay').classList.remove('show');
+  });
+
+  // A line: short tap seeks instantly (no artificial delay — that delay was what made
+  // taps feel laggy and occasionally get misread). Long-press toggles it into the
+  // multi-sentence translate selection instead. Once a selection is already active,
+  // a short tap on any other line just adds/removes it from that selection.
+  // A line: a single tap seeks — but only after a short window with no second tap, so a
+  // deliberate double-tap never has time to audibly start playing the line first (that
+  // briefly-audible jump was also what sometimes carried playback into the NEXT line
+  // before the double-tap's pause could catch up, since LRC fragments can be very short).
+  // Once a selection is already active, a tap always just toggles immediately — there's
+  // nothing to seek prematurely in that mode, so no need to wait there.
+  const DOUBLE_TAP_WINDOW = 340;
+  let lastLineTapIdx = -1, lastLineTapAt = 0;
+  let pendingSeek = null;
+  function handleLineShortTap(idx, ln, row){
+    const now = performance.now();
+    const isDoubleTap = lastLineTapIdx===idx && (now-lastLineTapAt)<DOUBLE_TAP_WINDOW;
+    if(isDoubleTap){
+      if(pendingSeek){ clearTimeout(pendingSeek.timer); pendingSeek=null; }
+      lastLineTapIdx = -1; lastLineTapAt = 0;
+      toggleLineSelection(idx, ln, row);
+      return;
+    }
+    lastLineTapIdx = idx; lastLineTapAt = now;
+    if(selectedLines.length){
+      toggleLineSelection(idx, ln, row);
+      return;
+    }
+    if(pendingSeek) clearTimeout(pendingSeek.timer);
+    const timer = setTimeout(()=>{
+      pendingSeek = null;
+      seekToLine(ln, true);
+    }, DOUBLE_TAP_WINDOW);
+    pendingSeek = {timer, idx};
+  }
+
+  function attachLinePress(row, idx, ln){
+    let timer = null, holding = false, moved = false, startX=0, startY=0;
+    const TOL = 24, HOLD_MS = 480;
+
+    function onMove(e){
+      const p = getGesturePoint(e);
+      if(Math.abs(p.x-startX)>TOL || Math.abs(p.y-startY)>TOL){
+        moved = true;
+        markUserScrolling();
+        if(timer){ clearTimeout(timer); timer=null; }
+      }
+    }
+    function onEnd(){
+      if(timer){ clearTimeout(timer); timer=null; }
+      if(!holding && !moved) handleLineShortTap(idx, ln, row);
+      holding = false; moved = false;
+    }
+    function onCancel(){
+      if(timer){ clearTimeout(timer); timer=null; }
+      holding = false; moved = false;
+    }
+    function begin(e){
+      if(e.target && e.target.classList && e.target.classList.contains('word')) return; // words handle their own gesture
+      if(!gestureBegin(e, {onMove, onEnd, onCancel}, {preventStart:false})) return;
+      const p = getGesturePoint(e);
+      holding = false; moved = false;
+      startX = p.x; startY = p.y;
+      timer = setTimeout(()=>{
+        holding = true;
+        if(navigator.vibrate) try{ navigator.vibrate(12); }catch(err){}
+        toggleLineSelection(idx, ln, row);
+      }, HOLD_MS);
+    }
+    row.addEventListener('touchstart', begin, {passive:true});
+    row.addEventListener('mousedown', begin);
+  }
+
+  // Builds one lyric-line DOM element (row + its per-word spans + gesture handlers).
+  // Pure factory — does not touch the DOM tree itself, so it can be used both for the
+  // initial window build and for extending the window later (expandTop/expandBottom).
+  function buildLineRow(idx, ln){
+    const row = document.createElement('div');
+    row.className = 'lyric-line';
+    row.dataset.idx = idx;
+    attachLinePress(row, idx, ln);
+
+    const textWrap = document.createElement('div');
+    textWrap.className = 'lyric-text';
+
+    const lineWordSpans = [];
+    const tokens = ln.text.split(/(\s+)/);
+    tokens.forEach(token=>{
+      if(/^\s+$/.test(token) || token===''){
+        textWrap.appendChild(document.createTextNode(token));
+        return;
+      }
+      const span = document.createElement('span');
+      span.className = 'word';
+      span.textContent = token;
+      const clean = cleanWord(token);
+      span.dataset.clean = clean;
+      textWrap.appendChild(span);
+      if(clean) lineWordSpans.push(span);
+    });
+    lineWordSpans.forEach((span, i)=> attachWordPress(span, span.dataset.clean, lineWordSpans, i, idx, ln, row));
+
+    row.appendChild(textWrap);
+    return row;
+  }
+
+  // Re-applies active/past/selected state to whatever rows are currently in the DOM.
+  // Needed after any full or partial rebuild, since fresh elements start with none of
+  // that state.
+  function restoreRowState(fromIdx, toIdx){
+    for(let idx=fromIdx; idx<=toIdx; idx++){
+      const row = lineEls[idx];
+      if(!row) continue;
+      if(idx === currentLineIdx) row.classList.add('active');
+      else if(idx < currentLineIdx) row.classList.add('past');
+    }
+    if(selectedLines.length){
+      selectedLines.forEach(s=>{ if(s.idx>=fromIdx && s.idx<=toIdx && lineEls[s.idx]) lineEls[s.idx].classList.add('selected'); });
+    }
+  }
+
+  function estimateHeight(count){ return Math.max(0, count) * avgLineHeight; }
+
+  // Samples a few currently-rendered (non-active) rows to keep avgLineHeight honest —
+  // it only has to be close enough that the spacer heights don't drift the scrollbar
+  // noticeably; scrollToActiveLine always re-measures the real active row for centering,
+  // so this estimate never affects the actual autoplay-centering accuracy.
+  function refineAvgLineHeight(){
+    const rows = lineEls.filter(r=> r && !r.classList.contains('active'));
+    if(rows.length < 5) return;
+    const sample = rows.length > 24 ? rows.slice(0, 24) : rows;
+    let total = 0;
+    sample.forEach(r=> total += r.getBoundingClientRect().height);
+    const measured = total / sample.length;
+    if(measured > 4) avgLineHeight = avgLineHeight*0.7 + measured*0.3;
+  }
+
+  // Full (re)build: throws away whatever's currently rendered and renders a fresh
+  // window of RENDER_RADIUS lines on each side of `centerIdx`, with spacer divs above
+  // and below standing in for the rest of the file. Used on load/mode-switch and for
+  // any jump (seek) that lands far outside the currently-rendered window.
+  function buildWindow(centerIdx){
+    const lines = activeLrcLines();
+    readoutBody.innerHTML = '';
+    lineEls = [];
+    if(!lines.length){ winStart = 0; winEnd = -1; return; }
+    const start = Math.max(0, centerIdx - RENDER_RADIUS);
+    const end = Math.min(lines.length-1, centerIdx + RENDER_RADIUS);
+
+    topSpacerH = estimateHeight(start);
+    bottomSpacerH = estimateHeight(lines.length - 1 - end);
+    const topSpacer = document.createElement('div');
+    topSpacer.className = 'lrc-spacer-top';
+    topSpacer.style.cssText = 'height:'+topSpacerH+'px;';
+    readoutBody.appendChild(topSpacer);
+
+    for(let idx=start; idx<=end; idx++){
+      const row = buildLineRow(idx, lines[idx]);
+      readoutBody.appendChild(row);
+      lineEls[idx] = row;
+    }
+
+    const bottomSpacer = document.createElement('div');
+    bottomSpacer.className = 'lrc-spacer-bottom';
+    bottomSpacer.style.cssText = 'height:'+bottomSpacerH+'px;';
+    readoutBody.appendChild(bottomSpacer);
+
+    winStart = start; winEnd = end;
+    restoreRowState(start, end);
+    refreshSavedWordMarks();
+    refineAvgLineHeight();
+  }
+
+  // Slides the rendered window forward/backward to keep covering `idx`, growing the
+  // near edge and trimming the far edge instead of a full rebuild — called on every
+  // 'timeupdate' via updateActiveLine, so this has to stay cheap for the common case
+  // (idx already comfortably inside the window: does nothing at all).
+  function slideWindowTo(idx){
+    const lines = activeLrcLines();
+    if(!lines.length) return;
+    if(winEnd < 0 || idx < winStart || idx > winEnd){
+      buildWindow(idx); // nothing rendered yet, or a big jump — cheaper to just rebuild
+      return;
+    }
+    if(idx - winStart < SLIDE_MARGIN && winStart > 0) expandTop(Math.min(RENDER_RADIUS, winStart));
+    if(winEnd - idx < SLIDE_MARGIN && winEnd < lines.length-1) expandBottom(Math.min(RENDER_RADIUS, lines.length-1-winEnd));
+    enforceRenderCap(idx);
+  }
+
+  // Grows the window backward by `count` lines. Shrinks the top spacer by exactly the
+  // real measured height of the newly-inserted rows (not the estimate), so the total
+  // height above any already-rendered content is unchanged and scrollTop needs no
+  // compensation — no jump, no flash.
+  function expandTop(count){
+    if(count<=0) return;
+    const lines = activeLrcLines();
+    const newStart = Math.max(0, winStart - count);
+    if(newStart === winStart) return;
+    const topSpacer = readoutBody.querySelector('.lrc-spacer-top');
+    if(!topSpacer){ buildWindow(currentLineIdx>=0?currentLineIdx:winStart); return; }
+    const anchor = lineEls[winStart] || topSpacer.nextSibling;
+    const frag = document.createDocumentFragment();
+    const newRows = [];
+    for(let idx=newStart; idx<winStart; idx++){
+      const row = buildLineRow(idx, lines[idx]);
+      newRows.push(row);
+      lineEls[idx] = row;
+      frag.appendChild(row);
+    }
+    readoutBody.insertBefore(frag, anchor);
+    let realHeight = 0;
+    newRows.forEach(r=> realHeight += r.getBoundingClientRect().height);
+    topSpacerH = Math.max(0, topSpacerH - realHeight);
+    topSpacer.style.height = topSpacerH + 'px';
+    const oldStart = winStart;
+    winStart = newStart;
+    restoreRowState(newStart, oldStart-1);
+    refreshSavedWordMarks();
+    refineAvgLineHeight();
+  }
+
+  // Mirror of expandTop, growing the window forward.
+  function expandBottom(count){
+    if(count<=0) return;
+    const lines = activeLrcLines();
+    const newEnd = Math.min(lines.length-1, winEnd + count);
+    if(newEnd === winEnd) return;
+    const bottomSpacer = readoutBody.querySelector('.lrc-spacer-bottom');
+    if(!bottomSpacer){ buildWindow(currentLineIdx>=0?currentLineIdx:winEnd); return; }
+    const frag = document.createDocumentFragment();
+    const newRows = [];
+    for(let idx=winEnd+1; idx<=newEnd; idx++){
+      const row = buildLineRow(idx, lines[idx]);
+      newRows.push(row);
+      lineEls[idx] = row;
+      frag.appendChild(row);
+    }
+    readoutBody.insertBefore(frag, bottomSpacer);
+    let realHeight = 0;
+    newRows.forEach(r=> realHeight += r.getBoundingClientRect().height);
+    bottomSpacerH = Math.max(0, bottomSpacerH - realHeight);
+    bottomSpacer.style.height = bottomSpacerH + 'px';
+    const oldEnd = winEnd;
+    winEnd = newEnd;
+    restoreRowState(oldEnd+1, newEnd);
+    refreshSavedWordMarks();
+    refineAvgLineHeight();
+  }
+
+  // Removes `count` rendered rows from the far edge (away from the active line) and
+  // grows that edge's spacer by their real measured height first — same "measure before
+  // you remove" trick as expandTop/expandBottom, just in reverse, so the opposite edge's
+  // total height is preserved and nothing visually jumps. Keeps total rendered rows
+  // bounded even if the user scrolls through a huge file for a long time.
+  function trimTop(count){
+    if(count<=0) return;
+    const topSpacer = readoutBody.querySelector('.lrc-spacer-top');
+    if(!topSpacer) return;
+    const newStart = Math.min(winEnd, winStart + count);
+    let removedHeight = 0;
+    for(let idx=winStart; idx<newStart; idx++){
+      const row = lineEls[idx];
+      if(row){ removedHeight += row.getBoundingClientRect().height; row.remove(); }
+      lineEls[idx] = undefined;
+    }
+    topSpacerH += removedHeight;
+    topSpacer.style.height = topSpacerH + 'px';
+    winStart = newStart;
+  }
+  function trimBottom(count){
+    if(count<=0) return;
+    const bottomSpacer = readoutBody.querySelector('.lrc-spacer-bottom');
+    if(!bottomSpacer) return;
+    const newEnd = Math.max(winStart, winEnd - count);
+    let removedHeight = 0;
+    for(let idx=winEnd; idx>newEnd; idx--){
+      const row = lineEls[idx];
+      if(row){ removedHeight += row.getBoundingClientRect().height; row.remove(); }
+      lineEls[idx] = undefined;
+    }
+    bottomSpacerH += removedHeight;
+    bottomSpacer.style.height = bottomSpacerH + 'px';
+    winEnd = newEnd;
+  }
+  function enforceRenderCap(idx){
+    while(winEnd - winStart + 1 > MAX_RENDERED){
+      const distTop = idx - winStart, distBottom = winEnd - idx;
+      if(distTop > distBottom) trimTop(Math.min(RENDER_RADIUS, distTop - RENDER_RADIUS));
+      else trimBottom(Math.min(RENDER_RADIUS, distBottom - RENDER_RADIUS));
+    }
+  }
+
+  // Lets the user freely browse ahead/behind while paused (or just scrolling during
+  // playback) past whatever's currently rendered, without needing to render the whole
+  // file up front: as the real scroll position approaches either spacer, pull that side
+  // of the file in on demand.
+  function maybeExpandWindowNearEdges(){
+    if(winEnd < 0) return;
+    const lines = activeLrcLines();
+    if(!lines.length) return;
+    const topSpacer = readoutBody.querySelector('.lrc-spacer-top');
+    const bottomSpacer = readoutBody.querySelector('.lrc-spacer-bottom');
+    if(!topSpacer || !bottomSpacer) return;
+    const st = readoutBody.scrollTop;
+    const viewH = readoutBody.clientHeight;
+    if(st < topSpacerH + viewH && winStart > 0){
+      expandTop(Math.min(RENDER_RADIUS, winStart));
+      enforceRenderCap(currentLineIdx>=0 ? currentLineIdx : winStart);
+    }
+    if((st + viewH) > (readoutBody.scrollHeight - bottomSpacerH - viewH) && winEnd < lines.length-1){
+      expandBottom(Math.min(RENDER_RADIUS, lines.length-1-winEnd));
+      enforceRenderCap(currentLineIdx>=0 ? currentLineIdx : winEnd);
+    }
+  }
+
+  function renderLyrics(){
+    const lines = activeLrcLines();
+    winStart = 0; winEnd = -1;
+    if(!lines.length){
+      lineEls = [];
+      const hasMedia = isVideoMode() ? videoReady : audioLoaded;
+      readoutBody.innerHTML = hasMedia
+        ? '<div class="empty-state">'+(isVideoMode() ? 'Bu video için söz (.lrc) dosyası eklenmedi.' : 'Bu parça için söz (.lrc) dosyası eklenmedi.')+'</div>'
+        : '<div class="empty-state">▸ Sol alttaki ☰ menüsünden ses ve<br>söz (.lrc) dosyalarını ekle.<br><br>Bir kelimeyi anlamak için üzerine<br>basılı tut. Kelimeleri defterine<br>ekleyip kartlarla çalışabilirsin.</div>';
+      return;
+    }
+    buildWindow(Math.max(0, currentLineIdx));
+  }
+
+  function findLineIndex(t){
+    const lines = activeLrcLines();
+    let lo=0, hi=lines.length-1, ans=-1;
+    while(lo<=hi){
+      const mid=(lo+hi)>>1;
+      if(lines[mid].time<=t){ans=mid; lo=mid+1;} else hi=mid-1;
+    }
+    return ans;
+  }
+
+  // Always leaves exactly one line marked 'active', no matter what currentLineIdx was
+  // before this call — self-healing, so a manual seek can never leave two lines lit up.
+  function updateActiveLine(){
+    const idx = findLineIndex(getCurrentTime());
+    if(idx === currentLineIdx) return;
+    readoutBody.querySelectorAll('.lyric-line.active').forEach(el=>{
+      el.classList.remove('active');
+      el.classList.add('past');
+    });
+    currentLineIdx = idx;
+    if(idx>=0){
+      slideWindowTo(idx); // keep the rendered window centered on playback without a full rebuild
+      if(lineEls[idx]){
+        lineEls[idx].classList.remove('past');
+        lineEls[idx].classList.add('active');
+        scrollToActiveLine();
+      }
+    }
+  }
+
+  // Jumping to a line (tap) must feel instant even while a track is already playing.
+  // Just setting audio.currentTime and relying on the next native 'timeupdate' tick is
+  // not reliable on every browser (backward seeks especially can delay it), so we force
+  // the active-line/scroll update immediately instead of waiting for the browser.
+  function seekToLine(ln, autoPlay){
+    mediaSeek(ln.time);
+    if(autoPlay && isPaused()){ safePlay(); }
+    currentLineIdx = -1;
+    updateActiveLine();
+    // A YouTube seek doesn't repaint the line instantly the way the audio path does
+    // (getCurrentTime() lags a beat behind seekTo() on some browsers), so give it one
+    // more pass shortly after — cheap, and it's what makes tapping a line in Video
+    // mode feel exactly as instant as it does in Podcast mode.
+    if(isVideoMode()) setTimeout(()=>{ currentLineIdx = -1; updateActiveLine(); }, 220);
+  }
+
+  function lineTopWithin(el){
+    return el.getBoundingClientRect().top - readoutBody.getBoundingClientRect().top + readoutBody.scrollTop;
+  }
+
+  // programmaticScroll flags the brief window during which WE are the one setting
+  // scrollTop (via animateScrollTo below) — the readoutBody 'scroll' listener uses this
+  // to tell our own auto-centering apart from the user's finger, so it never mistakes
+  // its own motion for a fresh manual scroll and re-pauses itself.
+  let programmaticScroll = false;
+  // scrollAnimGen guards against overlapping animations: each .lyric-line is its own
+  // separately-timed LRC entry, and when lines advance faster than one 650ms scroll
+  // animation takes to finish (common with short phrases), a new animateScrollTo() call
+  // used to start while the PREVIOUS call's requestAnimationFrame loop was still running
+  // — with no cancellation, both loops kept writing to scrollTop independently, each
+  // computing its own motion from its own separately-captured start/change/startTime.
+  // The two fought over the same property, and the final resting position was whichever
+  // loop happened to write last — not necessarily the intended (newest) target. That's
+  // what produced a short line landing high with a large dead gap below it after a fast
+  // line-to-line transition: the scroll undershot because the newer target's animation
+  // got corrupted mid-flight by the older, superseded one still running alongside it.
+  // Tagging every call with an incrementing generation number and having the step loop
+  // check it on every frame means an old, superseded loop detects that fact and quietly
+  // stops itself instead of continuing to fight the newer one.
+  let scrollAnimGen = 0;
+  function animateScrollTo(target, duration){
+    const start = readoutBody.scrollTop;
+    const change = target - start;
+    const myGen = ++scrollAnimGen;
+    if(Math.abs(change) < 1) return;
+    programmaticScroll = true;
+    const startTime = performance.now();
+    (function step(now){
+      if(myGen !== scrollAnimGen) return; // a newer scroll target superseded this one — stop
+      const t = Math.min(1, (now-startTime)/duration);
+      const eased = 1 - Math.pow(1-t, 3); // ease-out cubic — gentle finish, no jitter
+      readoutBody.scrollTop = start + change*eased;
+      if(t < 1){
+        requestAnimationFrame(step);
+      }else{
+        // The final scrollTop write above can still dispatch its 'scroll' event
+        // asynchronously — hold the flag a beat longer so that trailing event doesn't
+        // get misread as the user grabbing the list right as we finish. Guarded by
+        // generation too: if a newer animation already started in this same window,
+        // it's still genuinely in control of scrollTop and this stale cleanup must not
+        // clear the flag out from under it.
+        setTimeout(()=>{ if(myGen === scrollAnimGen) programmaticScroll = false; }, 50);
+      }
+    })(performance.now());
+  }
+
+  // Real manual-scroll detection: a fixed timer-based "pause auto-scroll for N seconds"
+  // guess doesn't actually track how long the user's scroll gesture lasts — Android's own
+  // momentum/inertial scrolling after the finger lifts can easily run past any fixed
+  // guess, and once it does, our next auto-center call fights the browser's still-moving
+  // momentum scroll for control of scrollTop, landing the line wherever that fight
+  // happens to end rather than centered. Listening to real 'scroll' events instead means
+  // the pause naturally lasts exactly as long as the container is actually still moving,
+  // however long that turns out to be, and centering only resumes once it has genuinely
+  // stopped (350ms of silence) — at that point catching up on whatever line is active
+  // right then.
+  let userScrolling = false;
+  let userScrollDebounce = null;
+  function markUserScrolling(){
+    userScrolling = true;
+    clearTimeout(userScrollDebounce);
+    userScrollDebounce = setTimeout(()=>{
+      userScrolling = false;
+      // While paused, a manual scroll is the person deliberately browsing the lyrics —
+      // it must hold still right where they left it until they press play again, not
+      // snap back to the active line on its own. Auto-centering only resumes once
+      // playback is actually running (see the 'play' listeners below, which re-center
+      // immediately when it starts).
+      if(!isPaused()) scrollToActiveLine();
+    }, 350);
+  }
+  readoutBody.addEventListener('scroll', ()=>{
+    if(programmaticScroll) return; // this is our own animateScrollTo, not the user
+    markUserScrolling();
+    maybeExpandWindowNearEdges(); // pull more of the file in as the user browses toward it
+  });
+  function scrollToActiveLine(force){
+    if(userScrolling && !force) return; // the 'scroll' listener above re-invokes this once they truly stop
+    const el = lineEls[currentLineIdx];
+    if(!el) return;
+    requestAnimationFrame(()=>{
+      const containerH = readoutBody.clientHeight;
+      const lineH = el.clientHeight;
+      let target;
+      if(lineH >= containerH){
+        // Taller than the viewport either way — centering would cut off both the start
+        // and the end. Anchor near the top instead so at least reading starts from the
+        // beginning of the sentence, with a little air above it.
+        target = lineTopWithin(el) - 24;
+      } else {
+        target = lineTopWithin(el) - containerH/2 + lineH/2;
+      }
+      animateScrollTo(Math.max(0, target), 650);
+    });
+  }
+
+  // ================= Audio loading (multi-format, robust, reactive fallback) =================
+  const EXT_CANDIDATES = {
+    mp3:['audio/mpeg','audio/mp3'],
+    m4a:['audio/mp4','audio/x-m4a','audio/aac','audio/mpeg'],
+    m4b:['audio/mp4','audio/x-m4a','audio/aac'],
+    mp4:['audio/mp4'],
+    aac:['audio/aac','audio/mp4'],
+    wav:['audio/wav','audio/wave','audio/x-wav'],
+    ogg:['audio/ogg'],
+    oga:['audio/ogg'],
+    opus:['audio/ogg','audio/opus'],
+    flac:['audio/flac','audio/x-flac'],
+    webm:['audio/webm'],
+    wma:['audio/x-ms-wma']
+  };
+  let candidateQueue = [];
+  let candidateIdx = 0;
+  let currentAudioFile = null;
+  let currentAudioUrl = null;
+
+  let pendingAutoPlay = false;
+  function loadAudioFile(file, autoPlayWhenReady){
+    try{
+      const ext = (file.name.split('.').pop()||'').toLowerCase();
+      let candidates = EXT_CANDIDATES[ext] ? EXT_CANDIDATES[ext].slice() : ['audio/mpeg','audio/mp4','audio/aac','audio/ogg','audio/wav'];
+      if(file.type && !candidates.includes(file.type)) candidates.unshift(file.type);
+      currentAudioFile = file;
+      candidateQueue = candidates;
+      candidateIdx = 0;
+      audioLoaded = true;
+      pendingAutoPlay = !!autoPlayWhenReady;
+      applyAudioCandidate();
+      showToast('Ses dosyası yüklendi: '+file.name);
+    }catch(err){
+      showToast('Ses dosyası yüklenemedi: '+err.message);
+    }
+  }
+
+  function applyAudioCandidate(){
+    if(candidateIdx >= candidateQueue.length){
+      showToast('Bu ses formatı bu tarayıcıda oynatılamıyor. Chrome tarayıcısını deneyebilirsin.');
+      return;
+    }
+    const mime = candidateQueue[candidateIdx];
+    const blob = (currentAudioFile.type === mime) ? currentAudioFile : new Blob([currentAudioFile], {type:mime});
+    if(currentAudioUrl){ try{ URL.revokeObjectURL(currentAudioUrl); }catch(e){} }
+    currentAudioUrl = URL.createObjectURL(blob);
+    audio.pause();
+    audio.removeAttribute('src');
+    audio.innerHTML = '';
+    audio.src = currentAudioUrl;
+    audio.load();
+  }
+
+  audio.addEventListener('error', ()=>{
+    if(!audioLoaded) return;
+    candidateIdx++;
+    if(candidateIdx < candidateQueue.length){
+      applyAudioCandidate();
+    }else{
+      showToast('Ses oynatılamadı: desteklenmeyen format. Chrome tarayıcısını deneyebilirsin.');
+    }
+  });
+
+  audio.addEventListener('canplay', ()=>{
+    if(pendingAutoPlay){
+      pendingAutoPlay = false;
+      safePlay();
+    }
+  });
+
+  // ================= Equalizer (real Web Audio filters, not cosmetic) =================
+  // 5-band chain: low-shelf, two mid peaking bands, a third mid peaking band, high-shelf.
+  // Gains are in dB. createMediaElementSource can only ever be called ONCE per media
+  // element for its whole lifetime, so each element (audio, localVideo) gets its own
+  // filter chain built lazily on first real use (a genuine user tap, satisfying
+  // autoplay-gesture requirements), sharing one AudioContext between them; from then on
+  // a preset change just adjusts whichever chain(s) already exist.
+  const EQ_PRESETS = {
+    // Each preset boosts its target band AND pulls back competing bands, so the
+    // character shift is obvious even on small phone speakers — a boost alone is easy
+    // to miss, boost+contrast isn't. Order: [100Hz shelf, 400Hz, 1kHz, 2.5kHz, 8kHz shelf].
+    off:     [0,0,0,0,0],
+    bass:    [9,4,-1,-2,-3],
+    treble:  [-3,-2,0,4,9],
+    vocal:   [-4,1,5,4,-2],
+    speech:  [-5,0,6,5,-3],
+    podcast: [-4,-1,5,4,-1],
+    live:    [5,-2,-3,2,5],
+    bright:  [-2,-1,1,3,7],
+    warm:    [4,2,0,-2,-4]
+  };
+  let eqMode = 'off';
+  let audioCtx = null, eqFiltersAudio = null, eqFiltersVideo = null;
+
+  function buildEqChain(mediaEl){
+    const source = audioCtx.createMediaElementSource(mediaEl);
+    const specs = [
+      {type:'lowshelf', freq:100},
+      {type:'peaking', freq:400, Q:1},
+      {type:'peaking', freq:1000, Q:1},
+      {type:'peaking', freq:2500, Q:1},
+      {type:'highshelf', freq:8000}
+    ];
+    const filters = specs.map(s=>{
+      const f = audioCtx.createBiquadFilter();
+      f.type = s.type; f.frequency.value = s.freq;
+      if(s.Q) f.Q.value = s.Q;
+      f.gain.value = 0;
+      return f;
+    });
+    let node = source;
+    filters.forEach(f=>{ node.connect(f); node = f; });
+    node.connect(audioCtx.destination);
+    return filters;
+  }
+
+  function ensureAudioCtx(){
+    if(audioCtx) return true;
+    try{
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      return true;
+    }catch(err){
+      showToast('Ses dengeleyici bu tarayıcıda başlatılamadı');
+      return false;
+    }
+  }
+  function ensureAudioGraph(){
+    if(!ensureAudioCtx()) return false;
+    if(!eqFiltersAudio){
+      try{ eqFiltersAudio = buildEqChain(audio); }catch(err){ return false; }
+    }
+    return true;
+  }
+  function ensureVideoAudioGraph(){
+    if(!ensureAudioCtx()) return false;
+    if(!eqFiltersVideo){
+      try{ eqFiltersVideo = buildEqChain(localVideo); }catch(err){ return false; }
+    }
+    return true;
+  }
+
+  function applyEqPreset(mode){
+    if(!EQ_PRESETS[mode]) mode = 'off';
+    eqMode = mode;
+    if(mode === 'off' && !eqFiltersAudio && !eqFiltersVideo){
+      // Nothing was ever routed through Web Audio — leave both elements' normal output
+      // untouched rather than spinning up a graph just to set everything to zero.
+      return;
+    }
+    // Build whichever chain matches what's active right now — an explicit tap on a
+    // preset is itself a valid gesture, so this is safe even before the first play.
+    if(isVideoMode()) ensureVideoAudioGraph(); else ensureAudioGraph();
+    if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    const gains = EQ_PRESETS[mode];
+    if(eqFiltersAudio) eqFiltersAudio.forEach((f,i)=> f.gain.setTargetAtTime(gains[i], audioCtx.currentTime, 0.05));
+    if(eqFiltersVideo) eqFiltersVideo.forEach((f,i)=> f.gain.setTargetAtTime(gains[i], audioCtx.currentTime, 0.05));
+  }
+
+  document.getElementById('eqOptions').addEventListener('click', (e)=>{
+    const b = e.target.closest('.set-opt'); if(!b) return;
+    document.querySelectorAll('#eqOptions .set-opt').forEach(x=> x.classList.remove('active'));
+    b.classList.add('active');
+    applyEqPreset(b.dataset.eq);
+    persistEqMode();
+  });
+  async function persistEqMode(){
+    try{ await storage.set('eq-mode', JSON.stringify(eqMode), false); }catch(err){}
+    scheduleCloudAutoPush();
+  }
+  async function loadEqMode(){
+    try{
+      const res = await storage.get('eq-mode', false);
+      if(res){
+        const val = JSON.parse(res.value);
+        if(EQ_PRESETS[val]) eqMode = val;
+      }
+    }catch(err){}
+    document.querySelectorAll('#eqOptions .set-opt').forEach(b=> b.classList.toggle('active', b.dataset.eq===eqMode));
+    // Applying immediately here would try to start an AudioContext with no user
+    // gesture behind it — browsers block that. safePlay() applies it on first real play.
+  }
+
+
+  let playBusy = false;
+  function safePlay(){
+    if(isVideoMode()){
+      if(!mediaIsReady()){ showToast('Önce ☰ menüsünden bir video yükle'); return; }
+      if(eqMode !== 'off' && !eqFiltersVideo) applyEqPreset(eqMode); // apply saved EQ on first real play gesture
+      const p = localVideo.play();
+      if(p && p.catch) p.catch(err=>{ if(err.name!=='AbortError') showToast('Video oynatılamadı: '+err.message); });
+      return;
+    }
+    if(eqMode !== 'off' && !eqFiltersAudio) applyEqPreset(eqMode); // apply saved EQ on first real play gesture
+    if(!audioLoaded){ showToast('Önce kitaplıktan bir ses dosyası ekle'); return; }
+    if(playBusy) return;
+    playBusy = true;
+    const safetyTimer = setTimeout(()=>{ playBusy = false; }, 2500);
+    const p = audio.play();
+    if(p && p.then){
+      p.then(()=>{ clearTimeout(safetyTimer); playBusy=false; }).catch(err=>{
+        clearTimeout(safetyTimer); playBusy=false;
+        if(err && err.name==='AbortError') return; // benign race from rapid taps, ignore quietly
+        showToast('Oynatma başlatılamadı: '+err.message+'. Chrome tarayıcısını deneyebilirsin.');
+      });
+    }else{ clearTimeout(safetyTimer); playBusy=false; }
+  }
+  function togglePlay(){
+    if(isVideoMode()){
+      if(!mediaIsReady()){ showToast('Önce ☰ menüsünden bir video yükle'); return; }
+      if(isPaused()) safePlay(); else mediaPause();
+      return;
+    }
+    if(!audioLoaded){ showToast('Önce kitaplıktan bir ses dosyası ekle'); return; }
+    if(playBusy) return;
+    if(audio.paused){ safePlay(); } else { audio.pause(); }
+  }
+
+  // ================= Transport =================
+  const seekBar = document.getElementById('seekBar');
+  const playFab = document.getElementById('playFab');
+
+  audio.addEventListener('play', ()=>{ playFab.textContent='❚❚'; if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing'; if(!isVideoMode()){ clearTimeout(userScrollDebounce); userScrolling = false; scrollToActiveLine(true); } });
+  audio.addEventListener('pause', ()=>{ playFab.textContent='▶'; if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused'; });
+  audio.addEventListener('loadedmetadata', ()=>{
+    seekBar.max = audio.duration;
+    document.getElementById('durTime').textContent = fmtTime(audio.duration);
+  });
+  audio.addEventListener('timeupdate', ()=>{
+    if(!seekBar.matches(':active')) seekBar.value = audio.currentTime;
+    document.getElementById('curTime').textContent = fmtTime(audio.currentTime);
+    updateActiveLine();
+  });
+  seekBar.addEventListener('input', ()=>{ mediaSeek(parseFloat(seekBar.value)); });
+
+  document.getElementById('backBtn').addEventListener('click', ()=>{ mediaSeek(Math.max(0, getCurrentTime()-5)); });
+  document.getElementById('fwdBtn').addEventListener('click', ()=>{ mediaSeek(Math.min(getDuration()||1e9, getCurrentTime()+5)); });
+  document.getElementById('prevLineBtn').addEventListener('click', ()=>{
+    const lines = activeLrcLines();
+    if(!lines.length) return;
+    const idx = Math.max(0, findLineIndex(getCurrentTime())-1);
+    seekToLine(lines[idx]);
+  });
+  document.getElementById('nextLineBtn').addEventListener('click', ()=>{
+    const lines = activeLrcLines();
+    if(!lines.length) return;
+    const idx = Math.min(lines.length-1, findLineIndex(getCurrentTime())+1);
+    seekToLine(lines[idx]);
+  });
+
+  const speedSlider = document.getElementById('speedSlider');
+  const speedOverlay = document.getElementById('speedOverlay');
+  // Speed is per-mode (Podcast and Video keep their own rate — changing one never
+  // touches the other), matching how LRC/loop are already kept independent.
+  let podcastSpeed = 1, videoSpeed = 1;
+  function setSpeed(v){
+    v = Math.round(Math.min(2, Math.max(0.5, v)) * 20) / 20; // snap to 0.05 steps
+    if(isVideoMode()){
+      videoSpeed = v;
+      localVideo.playbackRate = v; // setting .playbackRate never resets currentTime/restarts playback
+    }else{
+      podcastSpeed = v;
+      audio.playbackRate = v;
+    }
+    speedSlider.value = v;
+    document.getElementById('speedValue').textContent = v.toFixed(2)+'×';
+    document.getElementById('speedPillValue').textContent = v.toFixed(2).replace(/0$/,'')+'×';
+  }
+  speedSlider.addEventListener('input', ()=> setSpeed(parseFloat(speedSlider.value)));
+  document.getElementById('speedDownBtn').addEventListener('click', ()=> setSpeed(parseFloat(speedSlider.value) - 0.05));
+  document.getElementById('speedUpBtn').addEventListener('click', ()=> setSpeed(parseFloat(speedSlider.value) + 0.05));
+  document.getElementById('speedPillBtn').addEventListener('click', ()=> speedOverlay.classList.add('show'));
+  document.getElementById('closeSpeed').addEventListener('click', ()=> speedOverlay.classList.remove('show'));
+  speedOverlay.addEventListener('click', e=>{ if(e.target===speedOverlay) e.currentTarget.classList.remove('show'); });
+
+  (function buildSpeedTicks(){
+    const track = document.getElementById('tickTrack');
+    const labels = document.getElementById('tickLabels');
+    const majorValues = [0.5, 1, 1.5, 2];
+    const minorPositions = [0, 16.7, 33.3, 50, 66.7, 83.3, 100];
+    minorPositions.forEach((p, i)=>{
+      const s = document.createElement('span');
+      s.style.left = p+'%';
+      if(i % 2 === 0) s.classList.add('major');
+      track.appendChild(s);
+    });
+    majorValues.forEach(v=>{
+      const pct = ((v - 0.5) / 1.5) * 100;
+      const s = document.createElement('span');
+      s.style.left = pct+'%';
+      s.textContent = (v % 1 === 0 ? v : v)+'×';
+      labels.appendChild(s);
+    });
+  })();
+
+  // ================= Draggable / dockable play button =================
+  let playDocked = true;
+  let playFloatPos = null;
+  let playDragging = false;
+  let dragOffsetX = 0, dragOffsetY = 0, dragStartClientX = 0, dragStartClientY = 0, dragMoved = false;
+
+  function updatePlayFabPosition(){
+    const slot = document.getElementById('playPlaceholder');
+    const r = slot.getBoundingClientRect();
+    let x, y;
+    if(r.width === 0 && r.height === 0){
+      // The docked anchor lives in the bottom-bar, which is hidden in focus mode — without
+      // a fallback this used to just bail here, freezing playFab (and, since
+      // updateZoomLockPosition() is only ever called from this function, the zoom-lock
+      // button too) at whatever stale position they last had before entering focus mode.
+      // Land it bottom-center of the readout/lyrics panel instead — clear of the
+      // bottom-right fullscreen toggle — so both always reflect the current layout.
+      const ro = document.querySelector('.readout').getBoundingClientRect();
+      x = ro.left + (ro.width - 48)/2;
+      y = ro.bottom - 48 - 16;
+    } else {
+      x = r.left; y = r.top;
+    }
+    playFab.style.left = x+'px';
+    playFab.style.top = y+'px';
+    if(typeof updateZoomLockPosition === 'function') updateZoomLockPosition();
+  }
+  function applyFloatPosition(){
+    const w = 48, h = 48;
+    let x = playFloatPos.xf * window.innerWidth;
+    let y = playFloatPos.yf * window.innerHeight;
+    x = Math.max(6, Math.min(window.innerWidth - w - 6, x));
+    y = Math.max(6, Math.min(window.innerHeight - h - 6, y));
+    playFab.style.left = x+'px';
+    playFab.style.top = y+'px';
+    if(typeof updateZoomLockPosition === 'function') updateZoomLockPosition();
+  }
+  async function persistPlayFabState(){
+    try{ await storage.set('play-fab-state', JSON.stringify({docked:playDocked, floatPos:playFloatPos}), false); }catch(e){}
+    scheduleCloudAutoPush();
+  }
+  async function loadPlayFabState(){
+    try{
+      const res = await storage.get('play-fab-state', false);
+      if(res){
+        const st = JSON.parse(res.value);
+        playDocked = !!st.docked;
+        playFloatPos = st.floatPos || null;
+      }
+    }catch(e){}
+    if(playDocked || !playFloatPos){ updatePlayFabPosition(); } else { applyFloatPosition(); }
+  }
+
+  playFab.addEventListener('pointerdown', (e)=>{
+    // If a word/line touch (long-press to look up a meaning, select a sentence, etc.)
+    // is already in progress elsewhere on the screen, ignore this pointerdown entirely.
+    // Without this, an incidental second-finger/thumb brush against the floating button
+    // during that hold could toggle playback behind the open dictionary sheet — exactly
+    // the kind of "why did it start playing on its own" surprise this guards against.
+    if(activeGesture) return;
+    wakePlayFab();
+    playDragging = true; dragMoved = false;
+    playFab.classList.add('dragging');
+    try{ playFab.setPointerCapture(e.pointerId); }catch(err){}
+    const rect = playFab.getBoundingClientRect();
+    dragOffsetX = e.clientX - rect.left;
+    dragOffsetY = e.clientY - rect.top;
+    dragStartClientX = e.clientX; dragStartClientY = e.clientY;
+  });
+  playFab.addEventListener('pointermove', (e)=>{
+    if(!playDragging) return;
+    if(!dragMoved){
+      if(Math.abs(e.clientX-dragStartClientX) < 8 && Math.abs(e.clientY-dragStartClientY) < 8) return;
+      dragMoved = true;
+    }
+    const w = 48, h = 48;
+    let x = e.clientX - dragOffsetX, y = e.clientY - dragOffsetY;
+    x = Math.max(6, Math.min(window.innerWidth - w - 6, x));
+    y = Math.max(6, Math.min(window.innerHeight - h - 6, y));
+    playFab.style.left = x+'px';
+    playFab.style.top = y+'px';
+    if(typeof updateZoomLockPosition === 'function') updateZoomLockPosition();
+  });
+  playFab.addEventListener('pointerup', (e)=>{
+    playDragging = false;
+    playFab.classList.remove('dragging');
+    if(!dragMoved){
+      // Same reasoning as the pointerdown guard above: a word/line hold that's still in
+      // progress (or only just released) owns this touch, not the button — even though
+      // it received its own pointerdown/pointerup pair for the same physical touch.
+      if(activeGesture){ schedulePlayFabIdle(); return; }
+      togglePlay();
+      schedulePlayFabIdle();
+      return;
+    }
+    const slot = document.getElementById('playPlaceholder');
+    const sr = slot.getBoundingClientRect();
+    const fr = playFab.getBoundingClientRect();
+    const dist = Math.hypot(fr.left-sr.left, fr.top-sr.top);
+    if(dist < 55){
+      playDocked = true; playFloatPos = null;
+      updatePlayFabPosition();
+    }else{
+      playDocked = false;
+      playFloatPos = {xf: fr.left/window.innerWidth, yf: fr.top/window.innerHeight};
+    }
+    persistPlayFabState();
+    schedulePlayFabIdle();
+  });
+  window.addEventListener('resize', ()=>{
+    if(playDocked) updatePlayFabPosition(); else if(playFloatPos) applyFloatPosition();
+  });
+
+  // ================= Reader settings =================
+  let readerSettings = {font:'sans', size:'26', align:'left'};
+  const FONT_MAP = {
+    sans:"'Inter', -apple-system, sans-serif",
+    serif:"'Source Serif 4', Georgia, serif",
+    rounded:"'Quicksand', -apple-system, sans-serif",
+    mono:"'Space Mono', ui-monospace, monospace"
+  };
+  function applyReaderSettings(){
+    document.documentElement.style.setProperty('--lyric-font', FONT_MAP[readerSettings.font]);
+    document.documentElement.style.setProperty('--lyric-size', readerSettings.size+'px');
+    document.documentElement.style.setProperty('--lyric-align', readerSettings.align);
+    document.querySelectorAll('#fontOptions .set-opt').forEach(b=> b.classList.toggle('active', b.dataset.font===readerSettings.font));
+    document.querySelectorAll('#sizeOptions .set-opt').forEach(b=> b.classList.toggle('active', b.dataset.size===readerSettings.size));
+    document.querySelectorAll('#alignOptions .set-opt').forEach(b=> b.classList.toggle('active', b.dataset.align===readerSettings.align));
+  }
+  async function loadReaderSettings(){
+    try{
+      const res = await storage.get('reader-settings', false);
+      if(res) readerSettings = Object.assign(readerSettings, JSON.parse(res.value));
+    }catch(err){}
+    applyReaderSettings();
+  }
+  async function persistReaderSettings(){
+    try{ await storage.set('reader-settings', JSON.stringify(readerSettings), false); }catch(err){}
+    scheduleCloudAutoPush();
+  }
+  document.getElementById('fontOptions').addEventListener('click', e=>{
+    const b = e.target.closest('.set-opt'); if(!b) return;
+    readerSettings.font = b.dataset.font; applyReaderSettings(); persistReaderSettings();
+  });
+  document.getElementById('sizeOptions').addEventListener('click', e=>{
+    const b = e.target.closest('.set-opt'); if(!b) return;
+    readerSettings.size = b.dataset.size; applyReaderSettings(); persistReaderSettings();
+  });
+  document.getElementById('alignOptions').addEventListener('click', e=>{
+    const b = e.target.closest('.set-opt'); if(!b) return;
+    readerSettings.align = b.dataset.align; applyReaderSettings(); persistReaderSettings();
+  });
+  let wasPlayingBeforeSettings = false;
+  function openSettingsSheet(){
+    wasPlayingBeforeSettings = !isPaused();
+    if(wasPlayingBeforeSettings) mediaPause();
+    document.getElementById('settingsOverlay').classList.add('show');
+  }
+  function closeSettingsSheet(){
+    document.getElementById('settingsOverlay').classList.remove('show');
+    if(wasPlayingBeforeSettings) safePlay();
+    wasPlayingBeforeSettings = false;
+  }
+  document.getElementById('closeSettings').addEventListener('click', closeSettingsSheet);
+  document.getElementById('settingsOverlay').addEventListener('click', e=>{ if(e.target.id==='settingsOverlay') closeSettingsSheet(); });
+  document.getElementById('openSettingsFromLibrary').addEventListener('click', ()=>{
+    document.getElementById('libraryOverlay').classList.remove('show');
+    openSettingsSheet();
+  });
+
+  // ================= App settings (word bubble, dictionary auto-pause, learned action) =================
+  function applyAppSettings(){
+    document.getElementById('bubbleToggle').checked = appSettings.showBubble;
+    document.getElementById('pauseOnDictToggle').checked = appSettings.pauseOnDict;
+    document.querySelectorAll('#learnedOptions .set-opt').forEach(b=> b.classList.toggle('active', b.dataset.learned===appSettings.learnedAction));
+  }
+  async function persistAppSettings(){
+    try{ await storage.set('app-settings', JSON.stringify(appSettings), false); }catch(err){}
+    scheduleCloudAutoPush();
+  }
+  async function loadAppSettings(){
+    try{
+      const res = await storage.get('app-settings', false);
+      if(res) appSettings = Object.assign(appSettings, JSON.parse(res.value));
+    }catch(err){}
+    applyAppSettings();
+  }
+  document.getElementById('bubbleToggle').addEventListener('change', e=>{
+    appSettings.showBubble = e.target.checked; persistAppSettings();
+  });
+  document.getElementById('pauseOnDictToggle').addEventListener('change', e=>{
+    appSettings.pauseOnDict = e.target.checked; persistAppSettings();
+  });
+  document.getElementById('learnedOptions').addEventListener('click', e=>{
+    const b = e.target.closest('.set-opt'); if(!b) return;
+    appSettings.learnedAction = b.dataset.learned; applyAppSettings(); persistAppSettings();
+  });
+
+  // ================= Learned words archive (alternative to deleting on "Öğrendim") =================
+  let learnedWords = [];
+  async function loadLearnedWords(){
+    try{
+      const res = await storage.get('learned-book', false);
+      learnedWords = res ? JSON.parse(res.value) : [];
+    }catch(err){ learnedWords = []; }
+    updateLearnedCount();
+  }
+  async function persistLearnedWords(){
+    try{ await storage.set('learned-book', JSON.stringify(learnedWords), false); }catch(err){}
+    scheduleCloudAutoPush();
+  }
+  function updateLearnedCount(){
+    document.getElementById('learnedCount').textContent = learnedWords.length;
+  }
+  function renderLearned(){
+    const body = document.getElementById('learnedBody');
+    if(!learnedWords.length){
+      body.innerHTML = '<div class="drawer-empty" style="padding:30px 8px;">Henüz öğrenilen kelime yok.</div>';
+      return;
+    }
+    body.innerHTML = '';
+    learnedWords.forEach((v,i)=>{
+      const item = document.createElement('div');
+      item.className = 'vocab-item';
+      item.innerHTML =
+        '<div><div class="vw">'+escapeHtml(v.word)+'</div>'+
+        (v.translation ? '<div class="vt">'+escapeHtml(v.translation)+'</div>' : '')+
+        '</div><span class="vocab-del" data-i="'+i+'" title="Deftere geri al">↺</span>';
+      item.querySelector('.vocab-del').addEventListener('click', async ()=>{
+        const [w] = learnedWords.splice(i,1);
+        vocab.unshift(w);
+        await persistLearnedWords(); await persistVocab();
+        updateLearnedCount(); updateVocabCount(); refreshSavedWordMarks(); renderLearned();
+        showToast('Deftere geri alındı');
+      });
+      body.appendChild(item);
+    });
+  }
+  document.getElementById('viewLearnedBtn').addEventListener('click', ()=>{
+    renderLearned();
+    document.getElementById('settingsOverlay').classList.remove('show');
+    document.getElementById('learnedOverlay').classList.add('show');
+  });
+  document.getElementById('closeLearned').addEventListener('click', ()=> document.getElementById('learnedOverlay').classList.remove('show'));
+  document.getElementById('learnedOverlay').addEventListener('click', e=>{ if(e.target.id==='learnedOverlay') e.currentTarget.classList.remove('show'); });
+
+  // ================= Backup / restore (playlist, vocab, learned, settings — not audio bytes) =================
+  const BACKUP_KEYS = ['playlist-data','video-playlist-data','vocab-book','learned-book','reader-settings','app-settings','play-fab-state','loop-mode','eq-mode'];
+  document.getElementById('exportBackupBtn').addEventListener('click', async ()=>{
+    try{
+      const data = {};
+      for(const key of BACKUP_KEYS){
+        try{
+          const res = await storage.get(key, false);
+          if(res) data[key] = JSON.parse(res.value);
+        }catch(e){}
+      }
+      const payload = {app:'syncpod', version:1, exportedAt:new Date().toISOString(), data};
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'syncpod-yedek-'+new Date().toISOString().slice(0,10)+'.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(()=> URL.revokeObjectURL(url), 4000);
+      showToast('Yedek indirildi');
+    }catch(err){
+      showToast('Yedek alınamadı: '+err.message);
+    }
+  });
+  document.getElementById('importBackupBtn').addEventListener('click', ()=> document.getElementById('importBackupInput').click());
+  document.getElementById('importBackupInput').addEventListener('change', async (e)=>{
+    const f = e.target.files[0];
+    e.target.value = '';
+    if(!f) return;
+    try{
+      const text = await f.text();
+      const payload = JSON.parse(text);
+      const data = payload.data || payload;
+      for(const key of BACKUP_KEYS){
+        if(data[key] !== undefined){
+          try{ await storage.set(key, JSON.stringify(data[key]), false); }catch(err){}
+        }
+      }
+      showToast('Yedek geri yüklendi, uygulama yenileniyor…');
+      setTimeout(()=> location.reload(), 900);
+    }catch(err){
+      showToast('Yedek dosyası okunamadı: '+err.message);
+    }
+  });
+
+  // ================= Cloud sync (Firebase Realtime Database) =================
+  // Same project/mechanism as an earlier app of the user's (tracker.html): a 6-char
+  // pairing code, a single JSON blob per code, manual push/pull with an updatedAt
+  // shown before overwriting, and an optional realtime auto-sync listener that ignores
+  // updates that originated from this same device (echo suppression via a device tag).
+  // Namespaced under 'syncpod_sync/' (not tracker's 'sync/') so the two apps' codes can
+  // never collide even though they share the same Firebase project.
+  const firebaseConfig = {
+    apiKey: "AIzaSyALPLQHOOvpHFaCYyt0woQKH95LsQzWe9I",
+    authDomain: "tracker-49c34.firebaseapp.com",
+    databaseURL: "https://tracker-49c34-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "tracker-49c34",
+    storageBucket: "tracker-49c34.firebasestorage.app",
+    messagingSenderId: "930984105000",
+    appId: "1:930984105000:web:8d49fef5438c41e709911d",
+    measurementId: "G-CM8YYPKKC9"
+  };
+  let fbDb = null, fbCode = null, fbAutoOn = false;
+  const fbDeviceTag = (navigator.userAgent||'').slice(0,50) + '|' + (Math.random().toString(36).slice(2,8));
+  const fbStatusEl = document.getElementById('fbStatus');
+  function fbSetStatus(msg){ if(fbStatusEl) fbStatusEl.textContent = msg; }
+
+  async function gatherSyncPayload(){
+    const data = {};
+    for(const key of BACKUP_KEYS){
+      try{
+        const res = await storage.get(key, false);
+        if(res) data[key] = JSON.parse(res.value);
+      }catch(e){}
+    }
+    return data;
+  }
+  async function applySyncPayload(data){
+    for(const key of BACKUP_KEYS){
+      if(data[key] !== undefined){
+        try{ await storage.set(key, JSON.stringify(data[key]), false); }catch(err){}
+      }
+    }
+  }
+
+  function fbShowConnected(){
+    document.getElementById('fbConnectPanel').style.display = 'none';
+    document.getElementById('fbConnectedPanel').style.display = 'block';
+    document.getElementById('fbCodeDisplay').textContent = fbCode;
+    fbUpdateAutoBtn();
+  }
+  function fbUpdateAutoBtn(){
+    const btn = document.getElementById('fbAutoSyncBtn');
+    btn.textContent = fbAutoOn ? '🔄 Otomatik Senkron: Açık' : '🔄 Otomatik Senkron: Kapalı';
+    btn.classList.toggle('active', fbAutoOn);
+  }
+  function fbGenerateCode(){
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = '';
+    for(let i=0;i<6;i++) code += chars[Math.floor(Math.random()*chars.length)];
+    return code;
+  }
+
+  // NOTE: anonymous auth was removed — in this user's network, the auth request itself
+  // (identitytoolkit.googleapis.com) is unreachable (auth/network-request-failed), a level
+  // deeper than the earlier gstatic.com script-load block. Since this app's only "security"
+  // is really an unguessable random code anyway, we skip auth and connect to the database
+  // directly. This REQUIRES the Firebase Console → Realtime Database → Rules for this
+  // project to allow open access under syncpod_sync, e.g.:
+  //   { "rules": { "syncpod_sync": { ".read": true, ".write": true } } }
+  let fbAuthReady = Promise.resolve();
+  async function fbInit(){
+    if(typeof firebase === 'undefined'){
+      const failed = (window.__fbLoadErrors && window.__fbLoadErrors.length) ? window.__fbLoadErrors.join(', ') : 'bilinmiyor';
+      fbSetStatus('🌐 Firebase kütüphanesi yüklenemedi (ağ engeli/adblock olabilir): '+failed);
+      console.error('Firebase SDK failed to load. Failed scripts:', window.__fbLoadErrors);
+      return;
+    }
+    try{
+      if(!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+      fbDb = firebase.database();
+    }catch(err){
+      fbSetStatus('⚠️ Bulut bağlantısı kurulamadı: '+err.message);
+      console.error('fbInit failed:', err);
+      return;
+    }
+    try{
+      const savedCode = await storage.get('fb-sync-code', false);
+      if(savedCode){
+        fbCode = JSON.parse(savedCode.value);
+        fbShowConnected();
+        const savedAuto = await storage.get('fb-autosync', false);
+        if(savedAuto && JSON.parse(savedAuto.value)) fbStartAutoSync();
+        fbSetStatus('Bağlı.');
+      }
+    }catch(err){}
+  }
+
+  document.getElementById('fbCreateBtn').addEventListener('click', async ()=>{
+    const btn = document.getElementById('fbCreateBtn');
+    const originalLabel = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '⏳ Bağlanıyor…';
+    fbSetStatus('⏳ Bağlanıyor…');
+    try{
+      if(!fbDb){ fbSetStatus('⚠️ Bulut bağlantısı yok. (Sayfayı yenileyip tekrar dene, veya tarayıcı konsolunu kontrol et.)'); return; }
+      try{ await fbAuthReady; }catch(err){ console.error('fbCreateBtn: auth not ready:', err); return; }
+      const code = fbGenerateCode();
+      fbSetStatus('Kod oluşturuluyor…');
+      try{
+        await fbDb.ref('syncpod_sync/'+code+'/meta').set({created:new Date().toISOString(), device:fbDeviceTag});
+        fbCode = code;
+        await storage.set('fb-sync-code', JSON.stringify(code), false);
+        fbShowConnected();
+        fbSetStatus('✅ Kod oluşturuldu. Diğer cihazına bu kodu gir, sonra buradan "Buluta Yükle" ile ilk veriyi gönder.');
+      }catch(err){
+        fbSetStatus('❌ Hata: '+err.message);
+        console.error('fbCreateBtn: write failed:', err);
+      }
+    }finally{
+      btn.disabled = false;
+      btn.textContent = originalLabel;
+    }
+  });
+
+  document.getElementById('fbConnectBtn').addEventListener('click', async ()=>{
+    const input = document.getElementById('fbCodeInput');
+    const code = input.value.trim().toUpperCase();
+    if(code.length !== 6){ fbSetStatus('⚠️ 6 haneli kodu gir.'); return; }
+    if(!fbDb){ fbSetStatus('⚠️ Bulut bağlantısı yok.'); return; }
+    try{ await fbAuthReady; }catch(err){ return; }
+    fbSetStatus('Kontrol ediliyor…');
+    try{
+      const snap = await fbDb.ref('syncpod_sync/'+code).once('value');
+      if(!snap.exists()){ fbSetStatus('❌ Bu kod bulunamadı.'); return; }
+      fbCode = code;
+      await storage.set('fb-sync-code', JSON.stringify(code), false);
+      fbShowConnected();
+      fbSetStatus('✅ Bağlandı. "Buluttan İndir" ile diğer cihazın verisini çekebilirsin.');
+    }catch(err){
+      fbSetStatus('❌ Hata: '+err.message);
+    }
+  });
+
+  document.getElementById('fbDisconnectBtn').addEventListener('click', async ()=>{
+    if(!confirm('Bulut bağlantısını kesmek istiyor musun? (Buluttaki veri silinmez.)')) return;
+    fbStopAutoSync();
+    fbCode = null;
+    try{ await storage.set('fb-sync-code', JSON.stringify(null), false); }catch(e){}
+    document.getElementById('fbConnectPanel').style.display = 'block';
+    document.getElementById('fbConnectedPanel').style.display = 'none';
+    document.getElementById('fbCodeInput').value = '';
+    fbSetStatus('Bağlantı kesildi.');
+  });
+
+  document.getElementById('fbPushBtn').addEventListener('click', async ()=>{
+    if(!fbDb || !fbCode){ fbSetStatus('⚠️ Önce bir koda bağlan.'); return; }
+    fbSetStatus('⬆️ Buluta yükleniyor…');
+    try{
+      await fbAuthReady;
+      const data = await gatherSyncPayload();
+      await fbDb.ref('syncpod_sync/'+fbCode+'/data').set({
+        payload: JSON.stringify(data), updatedAt: new Date().toISOString(), device: fbDeviceTag
+      });
+      fbSetStatus('✅ Yüklendi: '+new Date().toLocaleTimeString('tr-TR'));
+    }catch(err){
+      fbSetStatus('❌ Yükleme hatası: '+err.message);
+    }
+  });
+
+  document.getElementById('fbPullBtn').addEventListener('click', async ()=>{
+    if(!fbDb || !fbCode){ fbSetStatus('⚠️ Önce bir koda bağlan.'); return; }
+    fbSetStatus('⬇️ Kontrol ediliyor…');
+    try{
+      await fbAuthReady;
+      const snap = await fbDb.ref('syncpod_sync/'+fbCode+'/data').once('value');
+      if(!snap.exists() || !snap.val().payload){ fbSetStatus('⚠️ Buluttan henüz veri yok — önce diğer cihazdan yükle.'); return; }
+      const val = snap.val();
+      const when = val.updatedAt ? new Date(val.updatedAt).toLocaleString('tr-TR') : '?';
+      if(!confirm('Buluttaki veri ('+when+') ile mevcut oynatma listelerin, defterin ve ayarların değiştirilecek. Devam edilsin mi?')) return;
+      const parsed = JSON.parse(val.payload);
+      await applySyncPayload(parsed);
+      fbSetStatus('✅ İndirildi: '+when+' — yenileniyor…');
+      setTimeout(()=> location.reload(), 900);
+    }catch(err){
+      fbSetStatus('❌ İndirme hatası: '+err.message);
+    }
+  });
+
+  function fbStartAutoSync(){
+    if(!fbDb || !fbCode) return;
+    fbAutoOn = true;
+    storage.set('fb-autosync', JSON.stringify(true), false).catch(()=>{});
+    fbUpdateAutoBtn();
+    Promise.resolve(fbAuthReady).then(()=>{
+      // Firebase's .on('value', ...) always delivers the CURRENT data once immediately
+      // upon subscribing, before ever reacting to a real change — that first delivery
+      // isn't a new remote update, it's just "here's what's already there". Skipping it
+      // is required, otherwise every page load (auto-sync restarts on load) sees
+      // "someone else's data" and reloads, which restarts auto-sync, which sees the same
+      // still-unchanged data again... an infinite reload loop.
+      let firstSnapshot = true;
+      fbDb.ref('syncpod_sync/'+fbCode+'/data').on('value', async (snap)=>{
+        if(firstSnapshot){ firstSnapshot = false; return; }
+        if(!snap.exists() || !snap.val().payload) return;
+        const val = snap.val();
+        if(val.device === fbDeviceTag) return; // this device's own write — not a real update
+        try{
+          const parsed = JSON.parse(val.payload);
+          await applySyncPayload(parsed);
+          fbSetStatus('🔄 Otomatik senkron: '+new Date().toLocaleTimeString('tr-TR')+' — yenileniyor…');
+          showToast('🔄 Diğer cihazdan güncelleme alındı');
+          setTimeout(()=> location.reload(), 900);
+        }catch(err){}
+      });
+    }).catch(()=>{});
+    fbSetStatus('🔄 Otomatik senkron aktif.');
+  }
+  function fbStopAutoSync(){
+    fbAutoOn = false;
+    storage.set('fb-autosync', JSON.stringify(false), false).catch(()=>{});
+    if(fbDb && fbCode) fbDb.ref('syncpod_sync/'+fbCode+'/data').off();
+    fbUpdateAutoBtn();
+  }
+  document.getElementById('fbAutoSyncBtn').addEventListener('click', ()=>{
+    if(fbAutoOn) fbStopAutoSync(); else fbStartAutoSync();
+  });
+
+  // Debounced auto-push: whenever any synced piece of local data is saved while
+  // auto-sync is on, push the whole payload up a moment later (500ms, coalesces
+  // rapid-fire saves into one write) — mirrors tracker.html's fbSyncOnSave.
+  let fbPushTimer = null;
+  function scheduleCloudAutoPush(){
+    if(!fbAutoOn || !fbDb || !fbCode) return;
+    clearTimeout(fbPushTimer);
+    fbPushTimer = setTimeout(async ()=>{
+      try{
+        await fbAuthReady;
+        const data = await gatherSyncPayload();
+        await fbDb.ref('syncpod_sync/'+fbCode+'/data').set({
+          payload: JSON.stringify(data), updatedAt: new Date().toISOString(), device: fbDeviceTag
+        });
+      }catch(err){}
+    }, 500);
+  }
+
+  // ================= Library / Playlist =================
+  const libraryOverlay = document.getElementById('libraryOverlay');
+  const menuFab = document.getElementById('menuFab');
+  let playlist = [];
+  let currentTrackIdx = -1;
+  let relinkTargetIdx = null;
+
+  menuFab.addEventListener('click', ()=>{ renderPlaylist(); renderVideoPlaylist(); libraryOverlay.classList.add('show'); });
+  document.getElementById('closeLibrary').addEventListener('click', ()=> libraryOverlay.classList.remove('show'));
+  libraryOverlay.addEventListener('click', e=>{ if(e.target===libraryOverlay) e.currentTarget.classList.remove('show'); });
+  document.getElementById('nowPlaying').addEventListener('click', ()=>{ renderPlaylist(); renderVideoPlaylist(); libraryOverlay.classList.add('show'); });
+
+  document.getElementById('addAudioBtn').addEventListener('click', ()=> document.getElementById('audioMultiInput').click());
+  document.getElementById('addLrcBtn').addEventListener('click', ()=> document.getElementById('lrcMultiInput').click());
+
+  document.getElementById('audioMultiInput').addEventListener('change', (e)=>{
+    const files = Array.from(e.target.files||[]).filter(isUsableFile);
+    const skipped = e.target.files.length - files.length;
+    files.forEach(f=>{
+      const stem = stemOf(f.name);
+      let track = playlist.find(t=> !t.audioFile && (stemOf(t.audioName)===stem || stemOf(t.title)===stem));
+      if(track){ track.audioFile = f; track.audioName = f.name; }
+      else{
+        playlist.push({id:makeId(), title:f.name.replace(/\.[^.]+$/,''), audioName:f.name, audioFile:f, lrcName:null, lrcText:null, hasLrc:false, addedAt:Date.now()});
+      }
+    });
+    renderPlaylist(); persistPlaylist();
+    if(files.length) showToast(files.length+' ses dosyası eklendi');
+    if(skipped>0) explainBadPick('audio');
+    e.target.value = '';
+  });
+
+  document.getElementById('lrcMultiInput').addEventListener('change', (e)=>{
+    const files = Array.from(e.target.files||[]);
+    let remaining = files.length;
+    files.forEach(f=>{
+      const reader = new FileReader();
+      reader.onload = ()=>{
+        const stem = stemOf(f.name);
+        const text = reader.result;
+        let track = playlist.find(t=> stemOf(t.title)===stem || stemOf(t.audioName)===stem);
+        if(track){ track.lrcText = text; track.lrcName = f.name; track.hasLrc = true; }
+        else{
+          playlist.push({id:makeId(), title:f.name.replace(/\.[^.]+$/,''), audioName:null, audioFile:null, lrcName:f.name, lrcText:text, hasLrc:true, addedAt:Date.now()});
+        }
+        remaining--;
+        renderPlaylist(); persistPlaylist();
+        if(remaining===0) showToast(files.length+' söz dosyası eklendi');
+      };
+      reader.readAsText(f, 'UTF-8');
+    });
+    e.target.value = '';
+  });
+
+  document.getElementById('relinkAudioInput').addEventListener('change', (e)=>{
+    const f = e.target.files[0];
+    if(relinkTargetIdx!=null){
+      if(isUsableFile(f)){
+        playlist[relinkTargetIdx].audioFile = f;
+        playlist[relinkTargetIdx].audioName = f.name;
+        persistPlaylist();
+        selectTrack(relinkTargetIdx);
+      } else if(f){
+        explainBadPick('audio');
+      }
+    }
+    relinkTargetIdx = null;
+    e.target.value = '';
+  });
+  document.getElementById('relinkLrcInput').addEventListener('change', (e)=>{
+    const f = e.target.files[0];
+    const idx = relinkTargetIdx;
+    relinkTargetIdx = null;
+    if(!f || idx==null){ e.target.value=''; return; }
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      playlist[idx].lrcText = reader.result;
+      playlist[idx].lrcName = f.name;
+      playlist[idx].hasLrc = true;
+      persistPlaylist();
+      selectTrack(idx);
+    };
+    reader.readAsText(f, 'UTF-8');
+    e.target.value = '';
+  });
+
+  function renderPlaylist(){
+    const body = document.getElementById('playlistBody');
+    if(!playlist.length){
+      body.innerHTML = '<div class="drawer-empty" style="padding:24px 8px;">Henüz parça eklenmedi.</div>';
+      return;
+    }
+    body.innerHTML = '';
+    playlist.forEach((t,i)=>{
+      const row = document.createElement('div');
+      row.className = 'playlist-item' + (i===currentTrackIdx ? ' current' : '');
+      const audioState = t.audioFile ? '🎧 hazır' : '🔗 ses dosyası seçilmeli';
+      const lrcState = t.hasLrc ? '📝 söz hazır' : '📝 söz yok';
+      row.innerHTML =
+        '<div class="pl-main"><div class="pl-title">'+escapeHtml(t.title)+'</div>'+
+        '<div class="pl-sub">'+lrcState+' · '+audioState+'</div></div>'+
+        '<span class="pl-del" data-i="'+i+'">✕</span>';
+      row.querySelector('.pl-main').addEventListener('click', ()=>{
+        if(!t.audioFile){ relinkTargetIdx = i; document.getElementById('relinkAudioInput').click(); }
+        else if(!t.lrcText){ relinkTargetIdx = i; document.getElementById('relinkLrcInput').click(); }
+        else selectTrack(i);
+      });
+      row.querySelector('.pl-del').addEventListener('click', (e)=>{
+        e.stopPropagation();
+        playlist.splice(i,1);
+        if(currentTrackIdx===i) currentTrackIdx=-1;
+        renderPlaylist(); persistPlaylist();
+      });
+      body.appendChild(row);
+    });
+  }
+
+  function selectTrack(i, autoPlay){
+    if(isVideoMode()) switchMode('podcast');
+    const t = playlist[i];
+    currentTrackIdx = i;
+    if(t.audioFile){ loadAudioFile(t.audioFile, autoPlay); }
+    else { showToast('Bu parça için ses dosyası seçilmedi'); }
+    if(t.lrcText){
+      podcastLrcLines = parseLRC(t.lrcText);
+      currentLineIdx = -1;
+      renderLyrics();
+    }else{
+      podcastLrcLines = []; lineEls = []; winStart = 0; winEnd = -1;
+      readoutBody.innerHTML = '<div class="empty-state">Bu parça için söz (.lrc) dosyası eklenmedi.</div>';
+    }
+    updateNowPlaying();
+    updateMediaSession(t);
+    libraryOverlay.classList.remove('show');
+    renderPlaylist();
+  }
+
+  // Loop is per-mode too — Video has no playlist yet, so its loop only ever means
+  // "replay the one loaded video", but it must never track (or be toggled by) the
+  // same on/off state as Podcast's track/list loop.
+  let podcastLoopMode = 'off', videoLoopMode = 'off'; // 'off' | 'all' (loop playlist) | 'one' (repeat current track)
+  function activeLoopMode(){ return isVideoMode() ? videoLoopMode : podcastLoopMode; }
+  function setActiveLoopMode(v){ if(isVideoMode()) videoLoopMode = v; else podcastLoopMode = v; }
+
+  function playAdjacentTrack(dir){
+    if(!playlist.length) return;
+    let idx = currentTrackIdx + dir;
+    if(idx<0 || idx>=playlist.length){
+      if(podcastLoopMode==='all') idx = (idx + playlist.length) % playlist.length;
+      else return;
+    }
+    selectTrack(idx, true);
+  }
+  document.getElementById('npPrevBtn').addEventListener('click', ()=> playAdjacentTrack(-1));
+  document.getElementById('npNextBtn').addEventListener('click', ()=> playAdjacentTrack(1));
+  function updateTrackNavButtons(){
+    const noTracks = playlist.length===0;
+    document.getElementById('npPrevBtn').disabled = podcastLoopMode==='all' ? noTracks : currentTrackIdx<=0;
+    document.getElementById('npNextBtn').disabled = podcastLoopMode==='all' ? noTracks : (currentTrackIdx<0 || currentTrackIdx>=playlist.length-1);
+  }
+  // Auto-advance to the next track when one finishes, like a normal music player —
+  // or repeat the same track, or wrap back to the start of the playlist, per loopMode.
+  audio.addEventListener('ended', ()=>{
+    if(podcastLoopMode==='one'){
+      audio.currentTime = 0;
+      safePlay();
+      return;
+    }
+    playAdjacentTrack(1);
+  });
+  // Video mode has no playlist to advance through, so any loop setting (besides 'off')
+  // just replays the same video — matching what "loop" means when there's only one item.
+  localVideo.addEventListener('ended', ()=>{
+    if(videoLoopMode !== 'off'){
+      localVideo.currentTime = 0;
+      safePlay();
+    }
+  });
+
+  const loopBtn = document.getElementById('loopBtn');
+  function applyLoopUI(){
+    const lm = activeLoopMode();
+    loopBtn.classList.remove('active','loop-one');
+    if(lm==='all'){
+      loopBtn.classList.add('active');
+      loopBtn.title = 'Döngü: Listeyi Tekrarla (değiştirmek için dokun)';
+      loopBtn.textContent = '↻';
+    }else if(lm==='one'){
+      loopBtn.classList.add('active','loop-one');
+      loopBtn.title = 'Döngü: Bu Parçayı Tekrarla (değiştirmek için dokun)';
+      loopBtn.textContent = '↻¹';
+    }else{
+      loopBtn.title = 'Döngü kapalı (açmak için dokun)';
+      loopBtn.textContent = '↻';
+    }
+    updateTrackNavButtons();
+  }
+  loopBtn.addEventListener('click', ()=>{
+    const lm = activeLoopMode();
+    setActiveLoopMode(lm==='off' ? 'all' : (lm==='all' ? 'one' : 'off'));
+    applyLoopUI();
+    persistLoopMode();
+  });
+  async function persistLoopMode(){
+    try{ await storage.set('loop-mode', JSON.stringify(podcastLoopMode), false); }catch(err){}
+    scheduleCloudAutoPush();
+  }
+  async function loadLoopMode(){
+    try{
+      const res = await storage.get('loop-mode', false);
+      if(res){
+        const val = JSON.parse(res.value);
+        if(['off','all','one'].includes(val)) podcastLoopMode = val;
+      }
+    }catch(err){}
+    applyLoopUI();
+  }
+
+  // Media Session: lock-screen/notification controls + signals this is a real media
+  // session to the OS, which helps the browser keep playback alive with the screen off.
+  function updateMediaSession(track){
+    if(!('mediaSession' in navigator)) return;
+    try{
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: track ? track.title : 'SyncPod',
+        artist: 'SyncPod'
+      });
+      navigator.mediaSession.setActionHandler('play', ()=> safePlay());
+      navigator.mediaSession.setActionHandler('pause', ()=> mediaPause());
+      navigator.mediaSession.setActionHandler('seekbackward', ()=>{ mediaSeek(Math.max(0, getCurrentTime()-5)); });
+      navigator.mediaSession.setActionHandler('seekforward', ()=>{ mediaSeek(Math.min(getDuration()||1e9, getCurrentTime()+5)); });
+      navigator.mediaSession.setActionHandler('previoustrack', ()=> playAdjacentTrack(-1));
+      navigator.mediaSession.setActionHandler('nexttrack', ()=> playAdjacentTrack(1));
+    }catch(e){}
+  }
+
+  function updateNowPlaying(){
+    const el = document.getElementById('nowPlaying');
+    if(isVideoMode() && videoReady){
+      el.classList.remove('empty');
+      el.innerHTML = '▸ <b>'+escapeHtml(videoTitle || 'YouTube video')+'</b>';
+    }else if(currentTrackIdx>=0 && playlist[currentTrackIdx]){
+      el.classList.remove('empty');
+      el.innerHTML = '▸ <b>'+escapeHtml(playlist[currentTrackIdx].title)+'</b>';
+    }else{
+      el.classList.add('empty');
+      el.textContent = 'Kitaplıktan bir parça seç (☰)';
+    }
+    updateTrackNavButtons();
+  }
+
+  async function persistPlaylist(){
+    try{
+      const toSave = playlist.map(t=>({id:t.id, title:t.title, audioName:t.audioName, lrcName:t.lrcName, lrcText:t.lrcText, hasLrc:t.hasLrc, addedAt:t.addedAt}));
+      await storage.set('playlist-data', JSON.stringify(toSave), false);
+    }catch(err){ showToast('Liste kaydedilemedi'); }
+    scheduleCloudAutoPush();
+  }
+  async function loadPlaylist(){
+    try{
+      const res = await storage.get('playlist-data', false);
+      if(res){
+        const saved = JSON.parse(res.value);
+        playlist = saved.map(t=>({...t, audioFile:null}));
+      }
+    }catch(err){ playlist = []; }
+  }
+  document.getElementById('savePlaylistBtn').addEventListener('click', async ()=>{
+    await persistPlaylist();
+    showToast('Oynatma listesi kaydedildi (ses dosyalarını her açılışta yeniden seçmen gerekir)');
+  });
+
+  // ================= Word lookup sheet =================
+  const wordOverlay = document.getElementById('wordOverlay');
+  let currentWord = '';
+  let currentWordDetails = null;
+
+  let wordSheetRequestId = 0;
+  function openWordSheet(word, isUpdate){
+    currentWord = word;
+    currentWordDetails = null;
+    document.getElementById('wordTitle').textContent = word;
+    document.getElementById('wordPhonetic').textContent = '';
+    document.getElementById('quickTranslationArea').innerHTML = '<div class="loading-row"><span class="spinner"></span> çevriliyor…</div>';
+    document.getElementById('definitionArea').innerHTML = '<div class="loading-row"><span class="spinner"></span> aranıyor…</div>';
+    document.getElementById('translateFallbackLink').href = 'https://translate.google.com/?sl=en&tl=tr&text='+encodeURIComponent(word)+'&op=translate';
+
+    if(!isUpdate){
+      if(appSettings.pauseOnDict && !isPaused()){
+        wasPlayingBeforeDict = true;
+        mediaPause();
+      }else{
+        wasPlayingBeforeDict = false;
+      }
+    }
+
+    updateSaveBtn(word);
+    wordOverlay.classList.add('show');
+    const reqId = ++wordSheetRequestId;
+
+    const cached = wordDetailsCache.get(word);
+    if(cached){
+      currentWordDetails = cached;
+      renderWordDetails(cached);
+      return;
+    }
+    const details = {word, translation:'', translationsAlt:[], phonetic:'', meanings:[]};
+    fetchTranslationPart(word).then(t=>{
+      if(reqId !== wordSheetRequestId) return; // a newer phrase (from dragging) superseded this
+      Object.assign(details, t);
+      currentWordDetails = details;
+      renderWordDetails(details, 'translation');
+    });
+    fetchDictionaryPart(word).then(d=>{
+      if(reqId !== wordSheetRequestId) return;
+      Object.assign(details, d);
+      currentWordDetails = details;
+      renderWordDetails(details, 'definition');
+      wordDetailsCache.set(word, details);
+    });
+  }
+
+  function renderWordDetails(d, part){
+    if(!part || part==='translation'){
+      const qa = document.getElementById('quickTranslationArea');
+      if(d.translation){
+        qa.innerHTML = '<div class="quick-translation"></div>' + (d.translationsAlt.length ? '<div class="alt-row" id="altRow"></div>' : '');
+        qa.querySelector('.quick-translation').textContent = d.translation;
+        if(d.translationsAlt.length){
+          const row = qa.querySelector('#altRow');
+          d.translationsAlt.forEach(t=>{ const c=document.createElement('span'); c.className='chip'; c.textContent=t; row.appendChild(c); });
+        }
+      }else{
+        qa.innerHTML = '<div class="not-found">Otomatik çeviri alınamadı. Aşağıdaki bağlantıyı deneyebilirsin.</div>';
+      }
+    }
+    if(!part || part==='definition'){
+      document.getElementById('wordPhonetic').textContent = d.phonetic || '';
+      const da = document.getElementById('definitionArea');
+      if(d.meanings && d.meanings.length){
+        let html = '';
+        const allSyn = new Set();
+        d.meanings.forEach(m=>{
+          html += '<div class="def-item"><div class="def-pos">'+escapeHtml(m.partOfSpeech||'')+'</div>';
+          html += '<div class="def-text">'+escapeHtml(m.definition||'')+'</div>';
+          if(m.example) html += '<div class="def-example">"'+escapeHtml(m.example)+'"</div></div>';
+          else html += '</div>';
+          (m.synonyms||[]).forEach(s=>allSyn.add(s));
+        });
+        if(allSyn.size){
+          html += '<div class="alt-row">'+[...allSyn].slice(0,10).map(s=>'<span class="chip syn">'+escapeHtml(s)+'</span>').join('')+'</div>';
+        }
+        da.innerHTML = html;
+      }else{
+        da.innerHTML = '<div class="not-found">Bu kelime sözlükte bulunamadı (çekim eki içeriyor olabilir).</div>';
+      }
+    }
+  }
+
+  document.getElementById('closeWord').addEventListener('click', closeWordSheet);
+  wordOverlay.addEventListener('click', (e)=>{ if(e.target===wordOverlay) closeWordSheet(); });
+  let wasPlayingBeforeDict = false;
+  function closeWordSheet(){
+    wordOverlay.classList.remove('show');
+    if(appSettings.pauseOnDict && wasPlayingBeforeDict){ safePlay(); }
+    wasPlayingBeforeDict = false;
+  }
+
+  function updateSaveBtn(word){
+    const btn = document.getElementById('saveBtn');
+    const exists = vocab.some(v=>v.word===word);
+    btn.classList.toggle('saved', exists);
+    btn.innerHTML = exists ? '★ Kaydedildi' : '☆ Deftere Ekle';
+  }
+
+  document.getElementById('saveBtn').addEventListener('click', async ()=>{
+    const word = currentWord;
+    const idx = vocab.findIndex(v=>v.word===word);
+    if(idx>=0){
+      vocab.splice(idx,1);
+      await persistVocab();
+      updateVocabCount(); refreshSavedWordMarks(); updateSaveBtn(word);
+      showToast('Defterden kaldırıldı');
+      return;
+    }
+    const details = currentWordDetails || await fetchWordDetails(word);
+    vocab.unshift(Object.assign({word, savedAt:new Date().toISOString()}, details));
+    await persistVocab();
+    updateVocabCount(); refreshSavedWordMarks(); updateSaveBtn(word);
+    showToast('Kelime defterine eklendi');
+  });
+
+  // Translation + dictionary lookup, parallelized and cached. The three network calls
+  // (Google translate, MyMemory, dictionaryapi.dev) don't depend on each other, so they
+  // all fire at once instead of one-after-another — this is what actually made the sheet
+  // feel slow (each awaited fetch adds its full round-trip on top of the last one, and
+  // that stacks especially badly while a video is also decoding/rendering on the same
+  // thread). A hard per-request timeout keeps a single slow endpoint from blocking the
+  // rest, and a small in-memory cache means re-opening the same word is instant.
+  const wordDetailsCache = new Map();
+  function fetchWithTimeout(url, ms){
+    const ctrl = new AbortController();
+    const timer = setTimeout(()=> ctrl.abort(), ms);
+    return fetch(url, {signal:ctrl.signal}).finally(()=> clearTimeout(timer));
+  }
+
+  async function fetchTranslationPart(word){
+    const out = {translation:'', translationsAlt:[]};
+    const [gRes, mRes] = await Promise.allSettled([
+      fetchWithTimeout('https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=tr&dt=t&q='+encodeURIComponent(word), 5000),
+      fetchWithTimeout('https://api.mymemory.translated.net/get?q='+encodeURIComponent(word)+'&langpair=en|tr', 5000)
+    ]);
+    if(gRes.status==='fulfilled' && gRes.value && gRes.value.ok){
+      try{
+        const dg = await gRes.value.json();
+        const translated = (dg[0]||[]).map(seg=>seg[0]).join('');
+        if(translated) out.translation = translated;
+      }catch(err){}
+    }
+    if(mRes.status==='fulfilled' && mRes.value && mRes.value.ok){
+      try{
+        const d = await mRes.value.json();
+        if(!out.translation) out.translation = d?.responseData?.translatedText || '';
+        const seen = new Set([out.translation]);
+        (d.matches||[]).forEach(m=>{
+          const t = m.translation;
+          if(t && !seen.has(t) && out.translationsAlt.length<3){ seen.add(t); out.translationsAlt.push(t); }
+        });
+      }catch(err){}
+    }
+    return out;
+  }
+
+  async function fetchDictionaryPart(word){
+    const out = {phonetic:'', meanings:[]};
+    try{
+      const entry = await fetchDictionaryEntry(word);
+      if(entry){
+        out.phonetic = entry.phonetic || (entry.phonetics||[]).map(p=>p.text).find(Boolean) || '';
+        out.meanings = (entry.meanings||[]).slice(0,4).map(m=>{
+          const def = (m.definitions && m.definitions[0]) || {};
+          const syn = (m.synonyms && m.synonyms.length ? m.synonyms : (def.synonyms||[])).slice(0,6);
+          return {partOfSpeech:m.partOfSpeech||'', definition:def.definition||'', example:def.example||'', synonyms:syn};
+        }).filter(m=>m.definition);
+      }
+    }catch(err){}
+    return out;
+  }
+
+  async function fetchWordDetails(word){
+    if(wordDetailsCache.has(word)) return wordDetailsCache.get(word);
+    const [t, d] = await Promise.all([fetchTranslationPart(word), fetchDictionaryPart(word)]);
+    const result = {word, translation:t.translation, translationsAlt:t.translationsAlt, phonetic:d.phonetic, meanings:d.meanings};
+    wordDetailsCache.set(word, result);
+    return result;
+  }
+
+  // Only single words have entries in dictionaryapi.dev; if the exact (possibly inflected)
+  // form isn't found, retry with a few common base-form guesses (plurals, -ing, -ed) — all
+  // fired in parallel rather than one-by-one — before giving up.
+  async function fetchDictionaryEntry(word){
+    if(/\s/.test(word)) return null; // phrases aren't in a word dictionary
+    async function tryFetch(w){
+      try{
+        const r = await fetchWithTimeout('https://api.dictionaryapi.dev/api/v2/entries/en/'+encodeURIComponent(w), 4000);
+        if(r.ok){ const d = await r.json(); return d[0]||null; }
+      }catch(e){}
+      return null;
+    }
+    const entry = await tryFetch(word);
+    if(entry) return entry;
+    const guesses = new Set();
+    if(/ies$/.test(word)) guesses.add(word.replace(/ies$/,'y'));
+    if(/ing$/.test(word)){ guesses.add(word.replace(/ing$/,'')); guesses.add(word.replace(/ing$/,'e')); }
+    if(/ed$/.test(word)){ guesses.add(word.replace(/ed$/,'')); guesses.add(word.replace(/ed$/,'e')); }
+    if(/'s$/.test(word)) guesses.add(word.replace(/'s$/,''));
+    if(/s$/.test(word) && word.length>3) guesses.add(word.replace(/s$/,''));
+    guesses.delete('');
+    if(!guesses.size) return null;
+    const results = await Promise.allSettled([...guesses].map(tryFetch));
+    for(const r of results){ if(r.status==='fulfilled' && r.value) return r.value; }
+    return null;
+  }
+
+  // ================= Vocab notebook (persisted) =================
+  function normalizePhrase(text){
+    return String(text||'').split(/\s+/).map(w=>cleanWord(w)).filter(Boolean).join(' ');
+  }
+  async function loadVocab(){
+    try{
+      const res = await storage.get('vocab-book', false);
+      vocab = res ? JSON.parse(res.value) : [];
+      vocab.forEach(v=>{ v.word = normalizePhrase(v.word); });
+    }catch(err){ vocab = []; }
+    updateVocabCount();
+  }
+  async function persistVocab(){
+    try{ await storage.set('vocab-book', JSON.stringify(vocab), false); }
+    catch(err){ showToast('Kaydetme sırasında hata oluştu'); }
+    scheduleCloudAutoPush();
+  }
+  function updateVocabCount(){
+    document.getElementById('vocabCount').textContent = vocab.length;
+    document.getElementById('studyBtn').disabled = vocab.length===0;
+  }
+  function refreshSavedWordMarks(){
+    document.querySelectorAll('.word.saved').forEach(w=> w.classList.remove('saved'));
+    const singleWords = new Set();
+    const phrases = [];
+    vocab.forEach(v=>{
+      const parts = v.word.split(/\s+/).filter(Boolean);
+      if(parts.length<=1) singleWords.add(parts[0]);
+      else phrases.push(parts);
+    });
+    document.querySelectorAll('.word').forEach(w=>{
+      if(singleWords.has(w.dataset.clean)) w.classList.add('saved');
+    });
+    if(phrases.length){
+      lineEls.forEach(row=>{
+        const spans = Array.from(row.querySelectorAll('.word'));
+        const cleaned = spans.map(s=>s.dataset.clean);
+        phrases.forEach(parts=>{
+          for(let i=0;i<=cleaned.length-parts.length;i++){
+            let match = true;
+            for(let j=0;j<parts.length;j++){ if(cleaned[i+j]!==parts[j]){ match=false; break; } }
+            if(match){ for(let j=0;j<parts.length;j++) spans[i+j].classList.add('saved'); }
+          }
+        });
+      });
+    }
+  }
+
+  // ================= Vocab drawer =================
+  const drawerOverlay = document.getElementById('drawerOverlay');
+  document.getElementById('vocabToggle').addEventListener('click', ()=>{ renderDrawer(); drawerOverlay.classList.add('show'); });
+  document.getElementById('closeDrawer').addEventListener('click', ()=> drawerOverlay.classList.remove('show'));
+  drawerOverlay.addEventListener('click', e=>{ if(e.target===drawerOverlay) drawerOverlay.classList.remove('show'); });
+
+  function renderDrawer(){
+    const body = document.getElementById('drawerBody');
+    if(!vocab.length){
+      body.innerHTML = '<div class="drawer-empty">Henüz kelime kaydedilmedi.<br>Bir kelimeye basılı tutup<br>açılan panelden "Deftere Ekle"ye bas.</div>';
+      return;
+    }
+    body.innerHTML = '';
+    vocab.forEach(v=>{
+      const item = document.createElement('div');
+      item.className = 'vocab-item';
+      item.innerHTML =
+        '<div><div class="vw">'+escapeHtml(v.word)+'</div>'+
+        (v.translation ? '<div class="vt">'+escapeHtml(v.translation)+'</div>' : '')+
+        (v.meanings && v.meanings[0] ? '<div class="vd">'+escapeHtml(v.meanings[0].definition)+'</div>' : '')+
+        '</div><span class="vocab-del" data-word="'+escapeHtml(v.word)+'">✕</span>';
+      body.appendChild(item);
+    });
+    body.querySelectorAll('.vocab-del').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const w = btn.dataset.word;
+        vocab = vocab.filter(v=>v.word!==w);
+        await persistVocab();
+        updateVocabCount(); refreshSavedWordMarks(); renderDrawer();
+      });
+    });
+  }
+
+  // ================= Flashcard study =================
+  const studyOverlay = document.getElementById('studyOverlay');
+  let studyQueue = [];
+  let studyIdx = 0;
+  let studyFlipped = false;
+  let studyShuffled = false;
+
+  document.getElementById('studyBtn').addEventListener('click', ()=>{
+    if(!vocab.length) return;
+    drawerOverlay.classList.remove('show');
+    studyQueue = vocab.slice();
+    studyIdx = 0; studyFlipped = false;
+    renderStudy();
+    studyOverlay.classList.add('show');
+  });
+  document.getElementById('closeStudy').addEventListener('click', ()=> studyOverlay.classList.remove('show'));
+  document.getElementById('shuffleBtn').addEventListener('click', (e)=>{
+    studyShuffled = !studyShuffled;
+    e.currentTarget.classList.toggle('active', studyShuffled);
+    if(studyShuffled){
+      for(let i=studyQueue.length-1;i>0;i--){
+        const j = Math.floor(Math.random()*(i+1));
+        [studyQueue[i], studyQueue[j]] = [studyQueue[j], studyQueue[i]];
+      }
+    }else{ studyQueue = vocab.slice(); }
+    studyIdx = 0; studyFlipped = false;
+    renderStudy();
+  });
+
+  function renderStudy(){
+    const body = document.getElementById('studyBody');
+    const footer = document.getElementById('studyFooter');
+    document.getElementById('studyProgress').textContent = (studyQueue.length ? (studyIdx+1) : 0)+' / '+studyQueue.length;
+
+    if(!studyQueue.length){
+      body.innerHTML = '<div class="study-empty">Kart kalmadı 🎉<br>Kelime defterine yeni kelimeler ekleyip<br>tekrar çalışabilirsin.</div>';
+      footer.innerHTML = '';
+      return;
+    }
+    const item = studyQueue[studyIdx];
+    const card = document.createElement('div');
+    card.className = 'card ' + (studyFlipped ? 'card-back' : 'card-front');
+
+    if(!studyFlipped){
+      card.innerHTML =
+        '<div class="card-word">'+escapeHtml(item.word)+'</div>'+
+        (item.phonetic ? '<div class="card-phonetic">'+escapeHtml(item.phonetic)+'</div>' : '')+
+        '<div class="card-hint">Dokun: anlamı gör · Kaydır: önceki/sonraki</div>';
+    }else{
+      let html = '<div class="cb-translation">'+escapeHtml(item.translation||'—')+'</div>';
+      if(item.translationsAlt && item.translationsAlt.length){
+        html += '<div class="alt-row">'+item.translationsAlt.map(t=>'<span class="chip">'+escapeHtml(t)+'</span>').join('')+'</div>';
+      }
+      const allSyn = new Set();
+      (item.meanings||[]).forEach(m=>{
+        html += '<div class="meaning-block">';
+        html += '<div class="meaning-pos">'+escapeHtml(m.partOfSpeech||'')+'</div>';
+        html += '<div class="meaning-def">'+escapeHtml(m.definition||'')+'</div>';
+        if(m.example) html += '<div class="meaning-ex">"'+escapeHtml(m.example)+'"</div>';
+        html += '</div>';
+        (m.synonyms||[]).forEach(s=>allSyn.add(s));
+      });
+      if(allSyn.size){
+        html += '<div class="syn-row">'+[...allSyn].slice(0,10).map(s=>'<span class="chip syn">'+escapeHtml(s)+'</span>').join('')+'</div>';
+      }
+      if(!item.meanings || !item.meanings.length){
+        html += '<div class="meaning-block"><div class="meaning-def" style="color:var(--text-tertiary)">Detaylı tanım bulunamadı.</div></div>';
+      }
+      card.innerHTML = html;
+    }
+    let touchStartX=0, touchStartY=0, touchMoved=false;
+    card.addEventListener('pointerdown', (e)=>{
+      touchStartX=e.clientX; touchStartY=e.clientY; touchMoved=false;
+      card.style.transition = 'none';
+    });
+    card.addEventListener('pointermove', (e)=>{
+      const dx = e.clientX-touchStartX, dy = e.clientY-touchStartY;
+      if(Math.abs(dx)>10 || Math.abs(dy)>10) touchMoved=true;
+      if(Math.abs(dx) > Math.abs(dy)){
+        card.style.transform = 'translateX('+dx+'px) rotate('+(dx/18)+'deg)';
+        card.style.opacity = String(Math.max(0.35, 1 - Math.abs(dx)/380));
+      }
+    });
+    function snapBack(){
+      card.style.transition = 'transform .22s ease, opacity .22s ease';
+      card.style.transform = 'translateX(0) rotate(0)';
+      card.style.opacity = '1';
+    }
+    card.addEventListener('pointerup', (e)=>{
+      const dx = e.clientX-touchStartX, dy = e.clientY-touchStartY;
+      if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.5){
+        const goingNext = dx<0;
+        const canMove = goingNext ? studyIdx < studyQueue.length-1 : studyIdx > 0;
+        if(canMove){
+          card.style.transition = 'transform .25s ease, opacity .25s ease';
+          card.style.transform = 'translateX('+(goingNext ? -window.innerWidth : window.innerWidth)+'px) rotate('+(goingNext?-14:14)+'deg)';
+          card.style.opacity = '0';
+          setTimeout(()=>{
+            studyIdx += goingNext ? 1 : -1;
+            studyFlipped=false;
+            renderStudy();
+          }, 220);
+        }else{
+          showToast(goingNext ? 'Son kart' : 'İlk kart');
+          snapBack();
+        }
+      }else if(!touchMoved){
+        card.style.transition=''; card.style.transform=''; card.style.opacity='';
+        studyFlipped = !studyFlipped; renderStudy();
+      }else{
+        snapBack();
+      }
+    });
+    body.innerHTML = '';
+    body.appendChild(card);
+
+    footer.innerHTML = '';
+    const knowBtn = document.createElement('button');
+    knowBtn.className = 'study-action primary';
+    knowBtn.textContent = '✓ Öğrendim';
+    knowBtn.addEventListener('click', ()=>{
+      if(knowBtn.disabled) return;
+      knowBtn.disabled = true;
+      knowBtn.classList.add('flash');
+      const word = item.word;
+      setTimeout(async ()=>{
+        studyQueue.splice(studyIdx,1);
+        const removedIdx = vocab.findIndex(v=>v.word===word);
+        if(removedIdx>=0){
+          const [entry] = vocab.splice(removedIdx,1);
+          if(appSettings.learnedAction==='archive'){
+            learnedWords.unshift(entry);
+            await persistLearnedWords();
+            updateLearnedCount();
+          }
+        }
+        await persistVocab();
+        updateVocabCount(); refreshSavedWordMarks();
+        studyFlipped=false;
+        if(studyIdx >= studyQueue.length) studyIdx = Math.max(0, studyQueue.length-1);
+        renderStudy();
+      }, 260);
+    });
+    footer.appendChild(knowBtn);
+  }
+
+  // ================= Video mode (local file) =================
+  // Everything above (LRC parsing, word press/vocab, multi-line selection, seek,
+  // transport buttons, mediaSession) already runs through getCurrentTime()/mediaSeek()/
+  // isPaused()/mediaPause() and therefore works unchanged once a video is loaded — this
+  // section only has to (a) load a local video file into <video>, (b) parse/load the
+  // video's own .lrc into the same lrcLines/renderLyrics() pipeline the audio side
+  // uses, (c) switch the visible UI between the two modes and between portrait/landscape
+  // layouts, and (d) let the person resize the video/lyrics split and hide the chrome.
+  const modeTabPodcast = document.getElementById('modeTabPodcast');
+  const modeTabVideo = document.getElementById('modeTabVideo');
+  const videoWrap = document.getElementById('videoWrap');
+  const videoEmpty = document.getElementById('videoEmpty');
+  const videoStatusHint = document.getElementById('videoStatusHint');
+  const stageEl = document.getElementById('stage');
+  const videoSplitter = document.getElementById('videoSplitter');
+  const focusToggleBtn = document.getElementById('focusToggleBtn');
+
+  function updateVideoStatusHint(){
+    if(!videoStatusHint) return;
+    if(videoReady && videoLrcLines.length && isVideoMode()){
+      videoStatusHint.textContent = (videoTitle ? videoTitle+' — ' : '') + 'video ve söz hazır.';
+    }else if(videoReady){
+      videoStatusHint.textContent = (videoTitle ? videoTitle+' yüklendi. ' : 'Video yüklendi. ') + 'Şimdi bu videonun sözünü (.lrc) ekle.';
+    }else{
+      videoStatusHint.textContent = 'Henüz video yüklenmedi.';
+    }
+  }
+
+  // Video playlist — mirrors Podcast's playlist exactly: add video files and .lrc
+  // files (auto-paired by filename), pick a video to load it, remove entries, save/
+  // reload the list. Kept in its own `videoPlaylist` array/storage key so it never
+  // touches Podcast's `playlist`. Video File objects can't be persisted to storage
+  // either (same browser limitation Podcast already lives with), so like Podcast,
+  // titles/order/lrc survive a reload but video files need relinking once.
+  let videoPlaylist = [];
+  let currentVideoIdx = -1;
+  let relinkVideoTargetIdx = null;
+  let currentLocalVideoUrl = null;
+
+  document.getElementById('addVideoBtn').addEventListener('click', ()=> document.getElementById('videoMultiInput').click());
+  document.getElementById('addVideoLrcMultiBtn').addEventListener('click', ()=> document.getElementById('videoLrcMultiInput').click());
+
+  document.getElementById('videoMultiInput').addEventListener('change', (e)=>{
+    const files = Array.from(e.target.files||[]).filter(isUsableFile);
+    const skipped = e.target.files.length - files.length;
+    files.forEach(f=>{
+      const stem = stemOf(f.name);
+      let t = videoPlaylist.find(x=> !x.videoFile && (stemOf(x.videoName)===stem || stemOf(x.title)===stem));
+      if(t){ t.videoFile = f; t.videoName = f.name; }
+      else{
+        videoPlaylist.push({id:makeId(), title:f.name.replace(/\.[^.]+$/,''), videoName:f.name, videoFile:f, lrcName:null, lrcText:null, hasLrc:false, addedAt:Date.now()});
+      }
+    });
+    renderVideoPlaylist(); persistVideoPlaylist();
+    if(files.length) showToast(files.length+' video dosyası eklendi');
+    if(skipped>0) explainBadPick('video');
+    e.target.value = '';
+  });
+
+  document.getElementById('videoLrcMultiInput').addEventListener('change', (e)=>{
+    const files = Array.from(e.target.files||[]);
+    let remaining = files.length;
+    files.forEach(f=>{
+      const reader = new FileReader();
+      reader.onload = ()=>{
+        const stem = stemOf(f.name);
+        const text = reader.result;
+        let t = videoPlaylist.find(x=> stemOf(x.title)===stem || stemOf(x.videoName)===stem);
+        if(t){ t.lrcText = text; t.lrcName = f.name; t.hasLrc = true; }
+        else{
+          videoPlaylist.push({id:makeId(), title:f.name.replace(/\.[^.]+$/,''), videoName:null, videoFile:null, lrcName:f.name, lrcText:text, hasLrc:true, addedAt:Date.now()});
+        }
+        remaining--;
+        renderVideoPlaylist(); persistVideoPlaylist();
+        if(remaining===0) showToast(files.length+' video sözü eklendi');
+      };
+      reader.readAsText(f, 'UTF-8');
+    });
+    e.target.value = '';
+  });
+
+  document.getElementById('relinkVideoInput').addEventListener('change', (e)=>{
+    const f = e.target.files[0];
+    if(relinkVideoTargetIdx!=null){
+      if(isUsableFile(f)){
+        videoPlaylist[relinkVideoTargetIdx].videoFile = f;
+        videoPlaylist[relinkVideoTargetIdx].videoName = f.name;
+        persistVideoPlaylist();
+        selectVideoTrack(relinkVideoTargetIdx);
+      } else if(f){
+        explainBadPick('video');
+      }
+    }
+    relinkVideoTargetIdx = null;
+    e.target.value = '';
+  });
+  document.getElementById('relinkVideoLrcInput').addEventListener('change', (e)=>{
+    const f = e.target.files[0];
+    const idx = relinkVideoTargetIdx;
+    relinkVideoTargetIdx = null;
+    if(!f || idx==null){ e.target.value=''; return; }
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      videoPlaylist[idx].lrcText = reader.result;
+      videoPlaylist[idx].lrcName = f.name;
+      videoPlaylist[idx].hasLrc = true;
+      persistVideoPlaylist();
+      selectVideoTrack(idx);
+    };
+    reader.readAsText(f, 'UTF-8');
+    e.target.value = '';
+  });
+
+  function renderVideoPlaylist(){
+    const body = document.getElementById('videoPlaylistBody');
+    if(!videoPlaylist.length){
+      body.innerHTML = '<div class="drawer-empty" style="padding:24px 8px;">Henüz video eklenmedi.</div>';
+      return;
+    }
+    body.innerHTML = '';
+    videoPlaylist.forEach((t,i)=>{
+      const row = document.createElement('div');
+      row.className = 'playlist-item' + (i===currentVideoIdx ? ' current' : '');
+      const videoState = t.videoFile ? '🎬 hazır' : '🔗 video dosyası seçilmeli';
+      const lrcState = t.hasLrc ? '📝 söz hazır' : '📝 söz yok';
+      row.innerHTML =
+        '<div class="pl-main"><div class="pl-title">'+escapeHtml(t.title)+'</div>'+
+        '<div class="pl-sub">'+lrcState+' · '+videoState+'</div></div>'+
+        '<span class="pl-del" data-i="'+i+'">✕</span>';
+      row.querySelector('.pl-main').addEventListener('click', ()=>{
+        if(!t.videoFile){ relinkVideoTargetIdx = i; document.getElementById('relinkVideoInput').click(); }
+        else if(!t.lrcText){ relinkVideoTargetIdx = i; document.getElementById('relinkVideoLrcInput').click(); }
+        else selectVideoTrack(i);
+      });
+      row.querySelector('.pl-del').addEventListener('click', (e)=>{
+        e.stopPropagation();
+        videoPlaylist.splice(i,1);
+        if(currentVideoIdx===i) currentVideoIdx=-1;
+        renderVideoPlaylist(); persistVideoPlaylist();
+      });
+      body.appendChild(row);
+    });
+  }
+
+  function selectVideoTrack(i, autoPlay){
+    const t = videoPlaylist[i];
+    currentVideoIdx = i;
+    if(t.videoFile){
+      if(currentLocalVideoUrl) URL.revokeObjectURL(currentLocalVideoUrl);
+      currentLocalVideoUrl = URL.createObjectURL(t.videoFile);
+      localVideo.src = currentLocalVideoUrl;
+      localVideo.load();
+      if(videoZoomReset) videoZoomReset();
+      localVideo.playbackRate = videoSpeed; // .load() can reset this in some browsers
+      videoReady = true;
+      videoEmpty.style.display = 'none';
+    }else{
+      showToast('Bu video için dosya seçilmedi');
+    }
+    videoTitle = t.title;
+    videoLrcLines = t.lrcText ? parseLRC(t.lrcText) : [];
+    currentLineIdx = -1;
+    if(!isVideoMode()) switchMode('video'); else renderLyrics();
+    updateVideoStatusHint();
+    updateNowPlaying();
+    if(autoPlay && t.videoFile) safePlay();
+    libraryOverlay.classList.remove('show');
+  }
+
+  async function persistVideoPlaylist(){
+    try{
+      const toSave = videoPlaylist.map(t=>({id:t.id, title:t.title, videoName:t.videoName, lrcName:t.lrcName, lrcText:t.lrcText, hasLrc:t.hasLrc, addedAt:t.addedAt}));
+      await storage.set('video-playlist-data', JSON.stringify(toSave), false);
+    }catch(err){ showToast('Video listesi kaydedilemedi'); }
+    scheduleCloudAutoPush();
+  }
+  async function loadVideoPlaylistData(){
+    try{
+      const res = await storage.get('video-playlist-data', false);
+      if(res){
+        const saved = JSON.parse(res.value);
+        videoPlaylist = saved.map(t=>({...t, videoFile:null}));
+      }
+    }catch(err){ videoPlaylist = []; }
+  }
+  document.getElementById('saveVideoPlaylistBtn').addEventListener('click', async ()=>{
+    await persistVideoPlaylist();
+    showToast('Video listesi kaydedildi (video dosyalarını her açılışta yeniden seçmen gerekir)');
+  });
+
+  localVideo.addEventListener('play', ()=>{
+    if(!isVideoMode()) return;
+    playFab.textContent = '❚❚';
+    if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+    clearTimeout(userScrollDebounce);
+    userScrolling = false;
+    scrollToActiveLine(true);
+  });
+  localVideo.addEventListener('pause', ()=>{
+    if(!isVideoMode()) return;
+    playFab.textContent = '▶';
+    if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+  });
+  // Auto-fit the video/lyrics split to the video's own aspect ratio as soon as it's
+  // known, instead of leaving the person to drag the splitter into a good position by
+  // hand every time — computed for both orientations at once (using swapped window
+  // dimensions for whichever one isn't currently active) so rotating afterward also
+  // lands on a sensible size, not last orientation's leftover ratio.
+  function autoFitVideoSize(){
+    if(!localVideo.videoWidth || !localVideo.videoHeight) return;
+    const aspect = localVideo.videoWidth / localVideo.videoHeight;
+    const w = window.innerWidth, h = window.innerHeight;
+    const portraitW = Math.min(w,h), portraitH = Math.max(w,h);
+    const portraitPct = Math.max(25, Math.min(70, (portraitW/aspect / portraitH) * 100));
+    const landW = Math.max(w,h), landH = Math.min(w,h);
+    const landPct = Math.max(25, Math.min(70, (landH*aspect / landW) * 100));
+    document.documentElement.style.setProperty('--video-size-portrait', portraitPct+'%');
+    document.documentElement.style.setProperty('--video-size-landscape', landPct+'%');
+  }
+  localVideo.addEventListener('loadedmetadata', ()=>{
+    if(!isVideoMode()) return;
+    seekBar.max = localVideo.duration;
+    document.getElementById('durTime').textContent = fmtTime(localVideo.duration);
+    autoFitVideoSize();
+  });
+  localVideo.addEventListener('timeupdate', ()=>{
+    if(!isVideoMode()) return;
+    if(!seekBar.matches(':active')) seekBar.value = localVideo.currentTime;
+    document.getElementById('curTime').textContent = fmtTime(localVideo.currentTime);
+    updateActiveLine();
+  });
+  localVideo.addEventListener('error', ()=>{
+    showToast('Video dosyası oynatılamadı — format desteklenmiyor olabilir.');
+  });
+
+  // Podcast <-> Video: switching pauses whichever player is being left behind (so
+  // audio never keeps playing invisibly under the video tab or vice versa), swaps the
+  // visible player UI, and refreshes the transport bar (seekBar/duration/play icon)
+  // to reflect whichever player is now active — same bar, same buttons, just a
+  // different source underneath, exactly like the LRC/vocab panel already is.
+  // Pinch-to-zoom + pan on the video itself — pinch with two fingers to zoom in
+  // (1x-4x), drag with one finger to pan once zoomed, double-tap to reset. Attached to
+  // the <video> element directly (not the whole frame) so it never steals taps meant
+  // for the ⛶ focus button or the splitter, and it works the same whether the frame
+  // is small, split-resized, or fullscreen — there's nothing fullscreen-specific to
+  // wire up beyond that.
+  (function setupVideoZoom(){
+    let scale=1, tx=0, ty=0;
+    let startDist=0, startScale=1, panning=false, panStart={x:0,y:0}, startTx=0, startTy=0;
+    let lastTapTime=0;
+    let xLocked=false; // when true: no pinch zoom, no horizontal pan — vertical pan only
+
+    function applyTransform(){ localVideo.style.transform = 'translate('+tx+'px,'+ty+'px) scale('+scale+')'; }
+    function clampPan(){
+      const rect = localVideo.getBoundingClientRect();
+      const maxX = Math.max(0, (rect.width * (scale-1)) / 2);
+      const maxY = Math.max(0, (rect.height * (scale-1)) / 2);
+      tx = Math.max(-maxX, Math.min(maxX, tx));
+      ty = Math.max(-maxY, Math.min(maxY, ty));
+    }
+    function resetZoom(){
+      scale=1; tx=0; ty=0;
+      localVideo.style.transition = 'transform .25s ease';
+      applyTransform();
+      setTimeout(()=>{ localVideo.style.transition = ''; }, 260);
+      hideZoomLockBtn();
+    }
+    videoZoomReset = resetZoom; // exposed so loading a new video starts unzoomed
+    function dist(a,b){ return Math.hypot(b.clientX-a.clientX, b.clientY-a.clientY); }
+
+    // ---- Zoom-lock button: appears above (or below) the play FAB once zoomed in, lets
+    // the user pin the horizontal axis so a vertical-only pan doesn't also drift sideways
+    // or accidentally re-zoom. Same idle-fade-then-wake pattern as the play FAB itself:
+    // while opaque, a tap toggles the lock; once faded, a tap only wakes it back to
+    // opaque (and does NOT toggle) — the first appearance starts opaque, so its very
+    // first tap toggles immediately, exactly like every other opaque-state tap.
+    let zoomLockIdleTimer = null;
+    function updateZoomLockPosition(){
+      const r = playFab.getBoundingClientRect();
+      if(r.width===0 && r.height===0) return;
+      const btnSize = 38, gap = 10;
+      let top = r.top - btnSize - gap;
+      if(top < 6) top = r.top + r.height + gap; // playFab too close to the top edge — sit below it instead
+      let left = r.left + (r.width - btnSize)/2;
+      left = Math.max(6, Math.min(window.innerWidth - btnSize - 6, left));
+      zoomLockBtn.style.left = left+'px';
+      zoomLockBtn.style.top = top+'px';
+    }
+    window.updateZoomLockPosition = updateZoomLockPosition; // playFab position code calls this too
+    function showZoomLockBtn(){
+      if(zoomLockBtn.classList.contains('show')) return;
+      zoomLockBtn.classList.add('show');
+      zoomLockBtn.classList.remove('idle');
+      clearTimeout(zoomLockIdleTimer);
+      updateZoomLockPosition();
+      zoomLockIdleTimer = setTimeout(()=> zoomLockBtn.classList.add('idle'), 2500);
+    }
+    function hideZoomLockBtn(){
+      zoomLockBtn.classList.remove('show','idle','active');
+      clearTimeout(zoomLockIdleTimer);
+      xLocked = false;
+      zoomLockBtn.textContent = '🔓';
+    }
+    zoomLockBtn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      if(zoomLockBtn.classList.contains('idle')){
+        zoomLockBtn.classList.remove('idle'); // faded: this tap only wakes it, doesn't toggle
+      }else{
+        xLocked = !xLocked; // opaque (including the very first appearance): this tap toggles
+        zoomLockBtn.classList.toggle('active', xLocked);
+        zoomLockBtn.textContent = xLocked ? '🔒' : '🔓';
+      }
+      clearTimeout(zoomLockIdleTimer);
+      zoomLockIdleTimer = setTimeout(()=> zoomLockBtn.classList.add('idle'), 2500);
+    });
+
+    localVideo.addEventListener('touchstart', (e)=>{
+      if(e.touches.length===2){
+        if(xLocked) return; // locked: pinch does nothing at all
+        startDist = dist(e.touches[0], e.touches[1]);
+        startScale = scale;
+        panning = false;
+      }else if(e.touches.length===1){
+        const now = Date.now();
+        if(now - lastTapTime < 300){ if(!xLocked) resetZoom(); lastTapTime = 0; return; }
+        lastTapTime = now;
+        if(scale > 1){
+          panning = true;
+          panStart = {x:e.touches[0].clientX, y:e.touches[0].clientY};
+          startTx = tx; startTy = ty;
+        }
+      }
+    }, {passive:true});
+
+    localVideo.addEventListener('touchmove', (e)=>{
+      if(e.touches.length===2){
+        if(xLocked) return;
+        e.preventDefault();
+        const d = dist(e.touches[0], e.touches[1]);
+        scale = Math.max(1, Math.min(4, startScale * (d / (startDist||d))));
+        clampPan();
+        applyTransform();
+        if(scale > 1) showZoomLockBtn();
+      }else if(e.touches.length===1 && panning){
+        e.preventDefault();
+        if(!xLocked) tx = startTx + (e.touches[0].clientX - panStart.x); // locked: hold x, pan y only
+        ty = startTy + (e.touches[0].clientY - panStart.y);
+        clampPan();
+        applyTransform();
+      }
+    }, {passive:false});
+
+    localVideo.addEventListener('touchend', (e)=>{
+      if(e.touches.length===0){
+        panning = false;
+        if(scale <= 1.02 && !xLocked) resetZoom();
+      }
+    });
+  })();
+
+  function switchMode(next){
+    if(mode === next) return;
+    if(mode === 'podcast' && !audio.paused) audio.pause();
+    if(mode === 'video' && !localVideo.paused) localVideo.pause();
+    mode = next;
+    document.body.classList.toggle('mode-video', mode==='video');
+    document.body.classList.toggle('mode-podcast', mode==='podcast');
+    if(mode === 'video') exitPodcastFocus(); else exitVideoFocus();
+    modeTabPodcast.classList.toggle('active', mode==='podcast');
+    modeTabVideo.classList.toggle('active', mode==='video');
+    videoWrap.classList.toggle('show', mode==='video');
+    videoSplitter.classList.toggle('show', mode==='video');
+    currentLineIdx = -1;
+    renderLyrics(); // the DOM only ever reflects whichever array was rendered last —
+                     // switching modes must repaint it from *this* mode's own lines,
+                     // or the previous mode's lyrics stay on screen even though the
+                     // underlying data is already correctly separated.
+    setSpeed(isVideoMode() ? videoSpeed : podcastSpeed); // restore this mode's own rate
+    applyLoopUI(); // and this mode's own loop setting
+    playFab.textContent = isPaused() ? '▶' : '❚❚';
+    const d = getDuration();
+    seekBar.max = d || 100;
+    seekBar.value = getCurrentTime();
+    document.getElementById('durTime').textContent = fmtTime(d);
+    document.getElementById('curTime').textContent = fmtTime(getCurrentTime());
+    updateActiveLine();
+    updateVideoStatusHint();
+    updateNowPlaying();
+  }
+  modeTabPodcast.addEventListener('click', ()=> switchMode('podcast'));
+  modeTabVideo.addEventListener('click', ()=> switchMode('video'));
+
+  // ================= Focus view (both modes) =================
+  // Video's focus view removes the whole bottom-bar — only the video frame, the
+  // lyrics panel, and the floating play/pause button remain, so every pixel goes to
+  // those two. Podcast's focus view is lighter: it only hides the header/now-playing/
+  // mode-tabs and keeps the full bottom-bar, since there's no video pane competing for
+  // room. Both also make a best-effort attempt at real Fullscreen; if the browser/
+  // WebView refuses (common from a content://... origin), the CSS-only focus view
+  // above still applies on its own, so the feature never silently does nothing.
+  function enterRealFullscreen(){
+    if(document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(()=>{});
+  }
+  function exitRealFullscreen(){
+    if(document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(()=>{});
+  }
+  // Best-effort orientation lock. Most browsers only allow screen.orientation.lock()
+  // while an element is actively in Fullscreen — calling it outside fullscreen (or on
+  // a browser/OS that doesn't support it at all, e.g. iOS Safari) throws or rejects.
+  // Every call site treats that as "the device just won't auto-rotate this time" rather
+  // than an error — the CSS layout itself never depends on the lock actually landing.
+  function lockOrientationSafe(type){
+    try{
+      if(screen.orientation && screen.orientation.lock){
+        const p = screen.orientation.lock(type);
+        if(p && p.catch) p.catch(()=>{});
+      }
+    }catch(e){}
+  }
+  const landscapeMQ = window.matchMedia('(orientation:landscape)');
+  // Landscape is only ever allowed while a focus/fullscreen view is active — the moment
+  // the device is physically landscape without one, force one open rather than showing
+  // the normal (non-focus) layout sideways. Covers: rotating while already on the page,
+  // and opening/refreshing the page while already held sideways.
+  function refreshFabPositions(){
+    if(playDocked) updatePlayFabPosition(); else if(playFloatPos) applyFloatPosition();
+  }
+  function enforceLandscapeFullscreenRule(){
+    if(landscapeMQ.matches && !isAnyFocusMode()){
+      const cls = isVideoMode() ? 'video-focus' : 'podcast-focus';
+      document.body.classList.add(cls);
+      focusToggleBtn.textContent = '⤢';
+      enterRealFullscreen();
+      lockOrientationSafe('landscape');
+      schedulePlayFabIdle();
+      refreshFabPositions();
+    }
+  }
+  landscapeMQ.addEventListener('change', enforceLandscapeFullscreenRule);
+  function exitVideoFocus(){
+    const wasLandscape = landscapeMQ.matches;
+    if(wasLandscape) lockOrientationSafe('portrait');
+    document.body.classList.remove('video-focus');
+    focusToggleBtn.textContent = '⛶';
+    exitRealFullscreen();
+    schedulePlayFabIdle();
+    refreshFabPositions();
+    if(wasLandscape) setTimeout(enforceLandscapeFullscreenRule, 400);
+  }
+  function exitPodcastFocus(){
+    const wasLandscape = landscapeMQ.matches;
+    if(wasLandscape) lockOrientationSafe('portrait');
+    document.body.classList.remove('podcast-focus');
+    focusToggleBtn.textContent = '⛶';
+    exitRealFullscreen();
+    schedulePlayFabIdle();
+    refreshFabPositions();
+    if(wasLandscape) setTimeout(enforceLandscapeFullscreenRule, 400);
+  }
+  // One shared button (sits in the corner of the LRC/lyrics panel, visible in both
+  // modes) toggles whichever focus mode belongs to whatever's currently active.
+  focusToggleBtn.addEventListener('click', ()=>{
+    const cls = isVideoMode() ? 'video-focus' : 'podcast-focus';
+    const on = document.body.classList.toggle(cls);
+    focusToggleBtn.textContent = on ? '⤢' : '⛶';
+    if(on){ enterRealFullscreen(); } else { exitRealFullscreen(); }
+    schedulePlayFabIdle();
+    refreshFabPositions();
+  });
+
+  // Exiting fullscreen through the system (back gesture, OS back button, another app
+  // taking focus) never goes through our own toggle buttons — without this listener the
+  // chrome-hiding CSS classes stay on while real fullscreen is already gone, which is
+  // exactly the "half in/half out" jumbled layout this is meant to prevent. Calling
+  // exitVideoFocus()/exitPodcastFocus() again when we were the ones who triggered the
+  // exit is harmless — they're idempotent.
+  document.addEventListener('fullscreenchange', ()=>{
+    if(!document.fullscreenElement){
+      if(document.body.classList.contains('video-focus')) exitVideoFocus();
+      if(document.body.classList.contains('podcast-focus')) exitPodcastFocus();
+    }
+  });
+  // Returning from the background often silently drops real Fullscreen (address bar
+  // reappears) even though our own CSS focus view — which isn't tied to the Fullscreen
+  // API at all — is still showing underneath. Make a best-effort attempt to restore
+  // true fullscreen too; if the browser refuses, the decluttered layout itself, and
+  // every video/lyrics/control size within it, is completely unaffected either way,
+  // since none of it depends on the Fullscreen API actually being active.
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState === 'visible'){
+      if(isAnyFocusMode() && !document.fullscreenElement){
+        enterRealFullscreen();
+      }
+      enforceLandscapeFullscreenRule();
+    }
+  });
+
+  // Floating play/pause idle-fade: in either focus view it's the one control left
+  // floating over the video/lyrics, so after a few seconds of no interaction it fades
+  // to a low opacity rather than sitting fully opaque over the content. The very first
+  // tap after fading still both performs its normal play/pause action AND restores
+  // full opacity — it's never a "wake up first, tap again to actually act" button.
+  let playFabIdleTimer = null;
+  function isAnyFocusMode(){ return document.body.classList.contains('video-focus') || document.body.classList.contains('podcast-focus'); }
+  function wakePlayFab(){
+    playFab.classList.remove('idle');
+    clearTimeout(playFabIdleTimer);
+  }
+  function schedulePlayFabIdle(){
+    clearTimeout(playFabIdleTimer);
+    if(!isAnyFocusMode()) return;
+    playFabIdleTimer = setTimeout(()=> playFab.classList.add('idle'), 2500);
+  }
+
+  // ================= Video/lyrics resizable split =================
+  // One shared splitter works for both layouts: in portrait the stage stacks video
+  // above lyrics and dragging changes the height split; in landscape (tablet, sideways)
+  // the stage runs left-to-right and the same drag changes the width split instead.
+  // Direction is read straight off the stage's live flex-direction, so it always
+  // matches whatever the CSS media query currently has in effect.
+  (function setupSplitterDrag(){
+    let dragging = false, startPos = 0, startPct = 42, axisSize = 0, landscape = false, varName = '--video-size-portrait';
+    function currentPct(name){
+      const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      const n = parseFloat(raw);
+      return isFinite(n) ? n : 42;
+    }
+    function begin(e){
+      if(!videoWrap.classList.contains('show')) return;
+      landscape = getComputedStyle(stageEl).flexDirection === 'row';
+      varName = landscape ? '--video-size-landscape' : '--video-size-portrait';
+      const r = stageEl.getBoundingClientRect();
+      axisSize = landscape ? r.width : r.height;
+      const p = getGesturePoint(e);
+      startPos = landscape ? p.x : p.y;
+      startPct = currentPct(varName);
+      dragging = true;
+      if(e.cancelable) e.preventDefault();
+    }
+    function move(e){
+      if(!dragging) return;
+      if(e.cancelable) e.preventDefault();
+      const p = getGesturePoint(e);
+      const pos = landscape ? p.x : p.y;
+      const deltaPct = axisSize ? ((pos-startPos)/axisSize*100) : 0;
+      const pct = Math.max(18, Math.min(78, startPct + deltaPct));
+      document.documentElement.style.setProperty(varName, pct+'%');
+    }
+    function end(){ dragging = false; }
+    videoSplitter.addEventListener('touchstart', begin, {passive:false});
+    videoSplitter.addEventListener('mousedown', begin);
+    document.addEventListener('touchmove', move, {passive:false});
+    document.addEventListener('mousemove', move);
+    document.addEventListener('touchend', end);
+    document.addEventListener('mouseup', end);
+  })();
+
+  // ================= Init =================
+  loadVocab();
+  loadReaderSettings();
+  loadAppSettings();
+  loadLearnedWords();
+  loadLoopMode();
+  loadEqMode();
+  loadPlaylist().then(()=>{ updateNowPlaying(); });
+  loadVideoPlaylistData();
+  loadPlayFabState();
+  fbInit();
+  enforceLandscapeFullscreenRule();
+})();
+</script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js').catch(function(e){ console.warn('SW kaydı başarısız:', e); });
+  });
+}
+</script>
+</body>
+</html>

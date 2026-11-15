@@ -1,0 +1,27 @@
+{
+  "name": "SyncPod — Podcast Söz Senkronu",
+  "short_name": "SyncPod",
+  "description": "Podcast ve video için LRC söz senkronu, kelime defteri ve kartlarla çalışma.",
+  "lang": "tr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "id": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a0a0b",
+  "theme_color": "#0a0a0b",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
