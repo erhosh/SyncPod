@@ -4,7 +4,7 @@
  * - Çeviri/sözlük API'leri ve Firebase veritabanı trafiği hiç önbelleğe alınmaz.
  * Uygulamada değişiklik yaptığında CACHE_VERSION değerini artır.
  */
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const SHELL_CACHE = 'syncpod-shell-' + CACHE_VERSION;
 const RUNTIME_CACHE = 'syncpod-runtime-' + CACHE_VERSION;
 

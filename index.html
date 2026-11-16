@@ -678,13 +678,24 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
 
     <div class="set-label" style="margin-top:6px;">Yedekleme</div>
     <div class="lib-hint">Oynatma listesi, sözler, kelime defteri ve tüm ayarlar dahildir. Ses dosyalarının kendisi yedeklenemez (tarayıcı kısıtı) — geri yüklerken tekrar seçmen gerekir.</div>
-    <button class="menu-row" id="exportBackupBtn">⬇️ Yedek Al (İndir)</button>
+    <button class="menu-row" id="pickBackupDirBtn">📁 Yedek Klasörü Seç</button>
+    <button class="menu-row" id="clearBackupDirBtn" style="display:none;">✖ Klasörü Kaldır</button>
+    <div class="lib-hint" id="backupDirInfo" style="margin-top:0;"></div>
+    <button class="menu-row" id="exportBackupBtn">⬇️ Yedek Al</button>
     <button class="menu-row" id="importBackupBtn">⬆️ Yedekten Geri Yükle</button>
     <input type="file" id="importBackupInput" accept="application/json,.json" hidden>
 
     <div class="set-label" style="margin-top:6px;">Cihazlar Arası Senkronizasyon</div>
     <div class="lib-hint">Oynatma listeleri, kelime defteri ve tüm ayarlar bir kodla diğer cihazına aktarılır. Ses/video dosyalarının kendisi senkronize edilmez.</div>
-    <div id="fbConnectPanel">
+    <div id="fbLoginPanel" style="display:none;">
+      <div class="lib-hint" style="margin-top:0;">Senkronizasyon için Google hesabınla giriş yapmalısın. Verin yalnızca senin hesabına özel saklanır.</div>
+      <button class="menu-row" id="fbGoogleLoginBtn">🔐 Google ile Giriş Yap</button>
+    </div>
+    <div id="fbUserLine" style="display:none;">
+      <div class="lib-hint" style="margin-top:0;" id="fbUserEmail"></div>
+      <button class="menu-row" id="fbGoogleLogoutBtn">🚪 Google Oturumunu Kapat</button>
+    </div>
+    <div id="fbConnectPanel" style="display:none;">
       <button class="menu-row" id="fbCreateBtn">🔑 Yeni Kod Oluştur (bu cihazdan)</button>
       <input type="text" id="fbCodeInput" placeholder="6 haneli kodu gir" maxlength="6" style="width:100%; box-sizing:border-box; background:var(--panel-2); border:1px solid var(--border); border-radius:10px; padding:11px 13px; color:var(--text); font-size:13px; margin:9px 0; text-transform:uppercase; letter-spacing:2px; text-align:center;">
       <button class="menu-row" id="fbConnectBtn">🔗 Koda Bağlan</button>
@@ -2417,6 +2428,54 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
 
   // ================= Backup / restore (playlist, vocab, learned, settings — not audio bytes) =================
   const BACKUP_KEYS = ['playlist-data','video-playlist-data','vocab-book','learned-book','reader-settings','app-settings','play-fab-state','loop-mode','eq-mode'];
+  // Yedek klasörü: DirectoryHandle IndexedDB'de saklanır. İzin yalnızca "Yedek Al" anında istenir.
+  const FSA = typeof window.showDirectoryPicker === 'function';
+  let backupDirHandle = null;
+  function fsOpen(){ return new Promise((res,rej)=>{ const r = indexedDB.open('syncpodFS',1); r.onupgradeneeded = ()=> r.result.createObjectStore('h'); r.onsuccess = ()=> res(r.result); r.onerror = ()=> rej(r.error); }); }
+  async function fsGet(k){ const d = await fsOpen(); return new Promise((res,rej)=>{ const q = d.transaction('h').objectStore('h').get(k); q.onsuccess = ()=> res(q.result); q.onerror = ()=> rej(q.error); }); }
+  async function fsSet(k,v){ const d = await fsOpen(); return new Promise((res,rej)=>{ const t = d.transaction('h','readwrite'); t.objectStore('h').put(v,k); t.oncomplete = ()=> res(); t.onerror = ()=> rej(t.error); }); }
+  async function fsDel(k){ const d = await fsOpen(); return new Promise((res,rej)=>{ const t = d.transaction('h','readwrite'); t.objectStore('h').delete(k); t.oncomplete = ()=> res(); t.onerror = ()=> rej(t.error); }); }
+  function backupDirStatus(t){ const el = document.getElementById('backupDirInfo'); if(el) el.textContent = t || ''; }
+  async function refreshBackupDirUI(){
+    const pickBtn = document.getElementById('pickBackupDirBtn'), clrBtn = document.getElementById('clearBackupDirBtn');
+    if(!FSA){ pickBtn.style.display = 'none'; clrBtn.style.display = 'none'; backupDirStatus('Bu tarayıcı klasör seçmeyi desteklemiyor; yedek standart indirme ile kaydedilir.'); return; }
+    if(!backupDirHandle){ try{ backupDirHandle = (await fsGet('backupDir')) || null; }catch(e){} }
+    clrBtn.style.display = backupDirHandle ? '' : 'none';
+    backupDirStatus(backupDirHandle ? 'Yedek klasörü: '+backupDirHandle.name : 'Klasör seçilmedi; yedek standart indirme ile kaydedilir.');
+  }
+  document.getElementById('pickBackupDirBtn').addEventListener('click', async ()=>{
+    try{
+      const h = await window.showDirectoryPicker({mode:'readwrite', id:'syncpod-backup'});
+      backupDirHandle = h; await fsSet('backupDir', h); refreshBackupDirUI();
+    }catch(e){ if(!e || e.name !== 'AbortError') backupDirStatus('Klasör seçilemedi: '+((e && e.message) || e)); }
+  });
+  document.getElementById('clearBackupDirBtn').addEventListener('click', async ()=>{
+    backupDirHandle = null; try{ await fsDel('backupDir'); }catch(e){}
+    refreshBackupDirUI();
+  });
+  // true = klasöre yazıldı; false = indirmeye düşülmeli
+  async function saveBackupToDir(name, text){
+    if(!FSA) return false;
+    try{
+      if(!backupDirHandle) backupDirHandle = (await fsGet('backupDir')) || null;
+      const h = backupDirHandle;
+      if(!h) return false;
+      let perm = 'prompt';
+      if(h.queryPermission) perm = await h.queryPermission({mode:'readwrite'});
+      if(perm !== 'granted') perm = await h.requestPermission({mode:'readwrite'});
+      if(perm !== 'granted'){ backupDirStatus('Klasör izni verilmedi; yedek indirme olarak kaydedildi.'); return false; }
+      const fh = await h.getFileHandle(name, {create:true});
+      const w = await fh.createWritable(); await w.write(text); await w.close();
+      backupDirStatus('Yedek kaydedildi: '+h.name+'/'+name);
+      showToast('Yedek klasöre kaydedildi');
+      return true;
+    }catch(e){
+      backupDirStatus('Klasöre yazılamadı ('+((e && e.name) || 'hata')+'); yedek indirme olarak kaydedildi.');
+      return false;
+    }
+  }
+  refreshBackupDirUI();
+
   document.getElementById('exportBackupBtn').addEventListener('click', async ()=>{
     try{
       const data = {};
@@ -2427,11 +2486,14 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
         }catch(e){}
       }
       const payload = {app:'syncpod', version:1, exportedAt:new Date().toISOString(), data};
-      const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+      const text = JSON.stringify(payload, null, 2);
+      const name = 'syncpod-yedek-'+new Date().toISOString().slice(0,10)+'.json';
+      if(await saveBackupToDir(name, text)) return;
+      const blob = new Blob([text], {type:'application/json'});
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'syncpod-yedek-'+new Date().toISOString().slice(0,10)+'.json';
+      a.download = name;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -2476,8 +2538,8 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     projectId: "tracker-49c34",
     storageBucket: "tracker-49c34.firebasestorage.app",
     messagingSenderId: "930984105000",
-    appId: "1:930984105000:web:8d49fef5438c41e709911d",
-    measurementId: "G-CM8YYPKKC9"
+    appId: "1:930984105000:web:9f70ecfdc67c808709911d",
+    measurementId: "G-74GJXLWJFS"
   };
   let fbDb = null, fbCode = null, fbAutoOn = false;
   const fbDeviceTag = (navigator.userAgent||'').slice(0,50) + '|' + (Math.random().toString(36).slice(2,8));
@@ -2520,14 +2582,28 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     return code;
   }
 
-  // NOTE: anonymous auth was removed — in this user's network, the auth request itself
-  // (identitytoolkit.googleapis.com) is unreachable (auth/network-request-failed), a level
-  // deeper than the earlier gstatic.com script-load block. Since this app's only "security"
-  // is really an unguessable random code anyway, we skip auth and connect to the database
-  // directly. This REQUIRES the Firebase Console → Realtime Database → Rules for this
-  // project to allow open access under syncpod_sync, e.g.:
-  //   { "rules": { "syncpod_sync": { ".read": true, ".write": true } } }
-  let fbAuthReady = Promise.resolve();
+  // Google sign-in: Realtime Database rules only allow users/<uid>/..., so data is private
+  // to the signed-in Google account. Devices share data by signing in with the same account.
+  let fbUid = null;
+  function fbPath(code){ return 'users/'+fbUid+'/syncpod/'+code; }
+  let fbAuthReady = Promise.reject(new Error('login required'));
+  fbAuthReady.catch(()=>{});
+  function fbErrText(e){
+    const c = (e && e.code) || '';
+    if(c==='auth/unauthorized-domain') return 'Bu adres Firebase yetkili alan adlarında yok (Authentication → Settings → Authorized domains).';
+    if(c==='auth/operation-not-allowed') return "Google girişi Firebase'de etkin değil.";
+    if(c==='auth/popup-closed-by-user' || c==='auth/cancelled-popup-request') return 'Giriş penceresi kapatıldı.';
+    if(c==='auth/network-request-failed') return 'Ağ hatası (Google servislerine erişilemiyor olabilir).';
+    return (e && e.message) || String(e);
+  }
+  function fbUserUI(u){
+    const show = (id, on)=>{ const el = document.getElementById(id); if(el) el.style.display = on ? 'block' : 'none'; };
+    show('fbLoginPanel', !u);
+    show('fbUserLine', !!u);
+    const em = document.getElementById('fbUserEmail');
+    if(em && u) em.textContent = '👤 ' + (u.email || u.displayName || 'Google hesabı');
+    if(!u){ show('fbConnectPanel', false); show('fbConnectedPanel', false); }
+  }
   async function fbInit(){
     if(typeof firebase === 'undefined'){
       const failed = (window.__fbLoadErrors && window.__fbLoadErrors.length) ? window.__fbLoadErrors.join(', ') : 'bilinmiyor';
@@ -2535,24 +2611,60 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
       console.error('Firebase SDK failed to load. Failed scripts:', window.__fbLoadErrors);
       return;
     }
+    let auth;
     try{
       if(!firebase.apps.length) firebase.initializeApp(firebaseConfig);
       fbDb = firebase.database();
+      auth = firebase.auth();
     }catch(err){
       fbSetStatus('⚠️ Bulut bağlantısı kurulamadı: '+err.message);
       console.error('fbInit failed:', err);
       return;
     }
-    try{
-      const savedCode = await storage.get('fb-sync-code', false);
-      if(savedCode){
-        fbCode = JSON.parse(savedCode.value);
-        fbShowConnected();
-        const savedAuto = await storage.get('fb-autosync', false);
-        if(savedAuto && JSON.parse(savedAuto.value)) fbStartAutoSync();
-        fbSetStatus('Bağlı.');
+    document.getElementById('fbGoogleLoginBtn').addEventListener('click', ()=>{
+      const prov = new firebase.auth.GoogleAuthProvider();
+      prov.setCustomParameters({prompt:'select_account'});
+      auth.signInWithPopup(prov).catch(err=>{
+        if(err.code==='auth/popup-blocked' || err.code==='auth/operation-not-supported-in-this-environment'){
+          auth.signInWithRedirect(prov);
+        } else {
+          fbSetStatus('⚠️ Giriş başarısız: '+fbErrText(err));
+        }
+      });
+    });
+    document.getElementById('fbGoogleLogoutBtn').addEventListener('click', ()=>{
+      if(confirm('Google oturumu kapatılsın mı? Senkron durur, cihazdaki veriler silinmez.')) auth.signOut();
+    });
+    fbSetStatus('⏳ Oturum denetleniyor…');
+    auth.onAuthStateChanged(async (u)=>{
+      if(u && !u.isAnonymous){
+        fbUid = u.uid;
+        fbAuthReady = Promise.resolve(u);
+        fbUserUI(u);
+        try{
+          const savedCode = await storage.get('fb-sync-code', false);
+          if(savedCode){
+            fbCode = JSON.parse(savedCode.value);
+            fbShowConnected();
+            const savedAuto = await storage.get('fb-autosync', false);
+            if(savedAuto && JSON.parse(savedAuto.value)) fbStartAutoSync();
+            fbSetStatus('Bağlı.');
+          } else {
+            document.getElementById('fbConnectPanel').style.display = 'block';
+            fbSetStatus('Giriş yapıldı. Kod oluştur veya mevcut kodu gir.');
+          }
+        }catch(err){
+          document.getElementById('fbConnectPanel').style.display = 'block';
+        }
+      } else {
+        if(fbDb && fbCode && fbUid){ try{ fbDb.ref(fbPath(fbCode)+'/data').off(); }catch(e){} }
+        fbUid = null;
+        fbAuthReady = Promise.reject(new Error('login required'));
+        fbAuthReady.catch(()=>{});
+        fbUserUI(null);
+        fbSetStatus('🔐 Senkronizasyon için Google ile giriş yap.');
       }
-    }catch(err){}
+    });
   }
 
   document.getElementById('fbCreateBtn').addEventListener('click', async ()=>{
@@ -2567,7 +2679,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
       const code = fbGenerateCode();
       fbSetStatus('Kod oluşturuluyor…');
       try{
-        await fbDb.ref('syncpod_sync/'+code+'/meta').set({created:new Date().toISOString(), device:fbDeviceTag});
+        await fbDb.ref(fbPath(code)+'/meta').set({created:new Date().toISOString(), device:fbDeviceTag});
         fbCode = code;
         await storage.set('fb-sync-code', JSON.stringify(code), false);
         fbShowConnected();
@@ -2590,7 +2702,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     try{ await fbAuthReady; }catch(err){ return; }
     fbSetStatus('Kontrol ediliyor…');
     try{
-      const snap = await fbDb.ref('syncpod_sync/'+code).once('value');
+      const snap = await fbDb.ref(fbPath(code)).once('value');
       if(!snap.exists()){ fbSetStatus('❌ Bu kod bulunamadı.'); return; }
       fbCode = code;
       await storage.set('fb-sync-code', JSON.stringify(code), false);
@@ -2618,7 +2730,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     try{
       await fbAuthReady;
       const data = await gatherSyncPayload();
-      await fbDb.ref('syncpod_sync/'+fbCode+'/data').set({
+      await fbDb.ref(fbPath(fbCode)+'/data').set({
         payload: JSON.stringify(data), updatedAt: new Date().toISOString(), device: fbDeviceTag
       });
       fbSetStatus('✅ Yüklendi: '+new Date().toLocaleTimeString('tr-TR'));
@@ -2632,7 +2744,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     fbSetStatus('⬇️ Kontrol ediliyor…');
     try{
       await fbAuthReady;
-      const snap = await fbDb.ref('syncpod_sync/'+fbCode+'/data').once('value');
+      const snap = await fbDb.ref(fbPath(fbCode)+'/data').once('value');
       if(!snap.exists() || !snap.val().payload){ fbSetStatus('⚠️ Buluttan henüz veri yok — önce diğer cihazdan yükle.'); return; }
       const val = snap.val();
       const when = val.updatedAt ? new Date(val.updatedAt).toLocaleString('tr-TR') : '?';
@@ -2659,7 +2771,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
       // "someone else's data" and reloads, which restarts auto-sync, which sees the same
       // still-unchanged data again... an infinite reload loop.
       let firstSnapshot = true;
-      fbDb.ref('syncpod_sync/'+fbCode+'/data').on('value', async (snap)=>{
+      fbDb.ref(fbPath(fbCode)+'/data').on('value', async (snap)=>{
         if(firstSnapshot){ firstSnapshot = false; return; }
         if(!snap.exists() || !snap.val().payload) return;
         const val = snap.val();
@@ -2678,7 +2790,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   function fbStopAutoSync(){
     fbAutoOn = false;
     storage.set('fb-autosync', JSON.stringify(false), false).catch(()=>{});
-    if(fbDb && fbCode) fbDb.ref('syncpod_sync/'+fbCode+'/data').off();
+    if(fbDb && fbCode) fbDb.ref(fbPath(fbCode)+'/data').off();
     fbUpdateAutoBtn();
   }
   document.getElementById('fbAutoSyncBtn').addEventListener('click', ()=>{
@@ -2696,7 +2808,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
       try{
         await fbAuthReady;
         const data = await gatherSyncPayload();
-        await fbDb.ref('syncpod_sync/'+fbCode+'/data').set({
+        await fbDb.ref(fbPath(fbCode)+'/data').set({
           payload: JSON.stringify(data), updatedAt: new Date().toISOString(), device: fbDeviceTag
         });
       }catch(err){}
