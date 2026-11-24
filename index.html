@@ -313,6 +313,14 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     color:var(--text); font-size:11px; font-weight:700; font-family:var(--mono); cursor:pointer;
     display:flex; align-items:center; justify-content:center;
   }
+  .util-right{display:flex; align-items:center; gap:8px; flex:0 0 auto;}
+  .cc-fab{
+    display:none; flex:0 0 auto; width:44px; height:44px; border-radius:50%; background:var(--panel-2); border:1px solid var(--border);
+    color:var(--text-secondary); font-size:12px; font-weight:800; letter-spacing:.3px; cursor:pointer;
+    align-items:center; justify-content:center;
+  }
+  body.mode-video .cc-fab{display:flex;}
+  .cc-fab.active{border-color:var(--accent); color:var(--accent-strong); background:var(--accent-dim);}
   .speed-sheet-label{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px;}
   .speed-sheet-label span:last-child{font-family:var(--mono); font-size:20px; color:var(--accent-strong); font-weight:700;}
   .speed-stepper{display:flex; align-items:center; gap:10px;}
@@ -547,7 +555,10 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
       <button class="pl-ctrl-btn" id="loopBtn" title="Döngü kapalı">↻</button>
       <button class="pl-ctrl-btn" id="npNextBtn" title="Sonraki parça">⏭</button>
     </div>
-    <button class="speed-fab" id="speedPillBtn" title="Oynatma Hızı"><span id="speedPillValue">1.0×</span></button>
+    <div class="util-right">
+      <button class="cc-fab" id="ccBtn" title="YouTube altyazısı: kapalı" aria-pressed="false">CC</button>
+      <button class="speed-fab" id="speedPillBtn" title="Oynatma Hızı"><span id="speedPillValue">1.0×</span></button>
+    </div>
   </div>
 </div>
 
@@ -860,7 +871,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   let vocab = [];
   let audioLoaded = false;
   let selectedLines = [];
-  let appSettings = {showBubble:true, pauseOnDict:false, learnedAction:'delete'};
+  let appSettings = {showBubble:true, pauseOnDict:false, learnedAction:'delete', ytCC:false};
   const WORD_HOLD_MS = 500;
   let mode = 'podcast'; // 'podcast' | 'video'
   let videoTitle = '', videoLrcText = '';
@@ -905,7 +916,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     if(ytCreating) return ytCreating;
     ytCreating = ytApiLoad().then(()=> new Promise(resolve=>{
       ytReadyQueue.unshift(resolve);
-      const vars = {playsinline:1, controls:0, disablekb:1, fs:0, rel:0, iv_load_policy:3, modestbranding:1, enablejsapi:1};
+      const vars = {playsinline:1, controls:0, disablekb:1, fs:0, rel:0, iv_load_policy:3, modestbranding:1, enablejsapi:1, cc_load_policy:(appSettings.ytCC?1:0)};
       if(/^https?:$/.test(location.protocol)) vars.origin = location.origin;
       ytPlayer = new YT.Player('ytPlayer', {
         videoId: initialId,
@@ -948,6 +959,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     let st = -1;
     try{ st = ytPlayer.getPlayerState(); }catch(err){}
     try{ ytPlayer.seekTo(t, allowAhead !== false); }catch(err){}
+    ytAfterSeekCC();
     if(st === YT_STATE.CUED || st === YT_STATE.UNSTARTED){
       setTimeout(()=>{ if(!ytIntendPlay){ try{ ytPlayer.pauseVideo(); }catch(err){} } }, 80);
     }
@@ -973,6 +985,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
       playFab.textContent = '❚❚';
       if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
       if(st === YT_STATE.PLAYING){
+        ytCCOnPlaying();
         if(ytLastState !== YT_STATE.PLAYING && ytLastState !== YT_STATE.BUFFERING){
           clearTimeout(userScrollDebounce); userScrolling = false; scrollToActiveLine(true);
         }
@@ -990,6 +1003,58 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     }
     ytLastState = st;
   }
+
+  // ---- Altyazı (CC): YouTube'un kendi altyazısını açar/kapatır; tercih kalıcıdır (appSettings.ytCC) ----
+  let ytCCFor = null; // altyazı tercihi en son hangi videoya uygulandı
+  const ccBtn = document.getElementById('ccBtn');
+  function updateCCUI(){
+    ccBtn.classList.toggle('active', !!appSettings.ytCC);
+    ccBtn.setAttribute('aria-pressed', appSettings.ytCC ? 'true' : 'false');
+    ccBtn.title = 'YouTube altyazısı: ' + (appSettings.ytCC ? 'açık' : 'kapalı');
+  }
+  function ytApplyCC(userAction){
+    if(!ytReady || !ytPlayer) return;
+    try{
+      if(appSettings.ytCC){
+        ytPlayer.loadModule('captions');
+        setTimeout(()=>{
+          try{
+            const tl = ytPlayer.getOption('captions','tracklist');
+            if(tl && tl.length){
+              const t = ytPlayer.getOption('captions','track');
+              if(!t || !t.languageCode) ytPlayer.setOption('captions','track',{languageCode: tl[0].languageCode});
+            }else if(userAction){
+              showToast('Bu videoda altyazı bulunamadı');
+            }
+          }catch(err){}
+        }, 700);
+      }else{
+        ytPlayer.unloadModule('captions');
+      }
+    }catch(err){}
+  }
+  // Kapalıyken: sarma/arabellekten sonra YouTube altyazıyı kendiliğinden açabilir, tekrar kapat
+  function ytAfterSeekCC(){
+    if(appSettings.ytCC) return;
+    [250, 900, 2200].forEach(ms=> setTimeout(()=>{
+      if(!appSettings.ytCC){ try{ ytPlayer.unloadModule('captions'); }catch(err){} }
+    }, ms));
+  }
+  function ytCCOnPlaying(){
+    let id = '';
+    try{ id = (ytPlayer.getVideoData() || {}).video_id || ''; }catch(err){}
+    if(!id || id === ytCCFor) return;
+    ytCCFor = id;
+    ytApplyCC(false);
+    if(!appSettings.ytCC) ytAfterSeekCC();
+  }
+  ccBtn.addEventListener('click', ()=>{
+    appSettings.ytCC = !appSettings.ytCC;
+    updateCCUI();
+    persistAppSettings();
+    ytApplyCC(true);
+    showToast(appSettings.ytCC ? 'Altyazı: açık' : 'Altyazı: kapalı');
+  });
 
   function ytOnError(e){
     const c = e && e.data;
@@ -2355,6 +2420,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     document.getElementById('bubbleToggle').checked = appSettings.showBubble;
     document.getElementById('pauseOnDictToggle').checked = appSettings.pauseOnDict;
     document.querySelectorAll('#learnedOptions .set-opt').forEach(b=> b.classList.toggle('active', b.dataset.learned===appSettings.learnedAction));
+    updateCCUI();
   }
   async function persistAppSettings(){
     try{ await storage.set('app-settings', JSON.stringify(appSettings), false); }catch(err){}
