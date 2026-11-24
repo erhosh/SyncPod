@@ -319,7 +319,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     color:var(--text-secondary); font-size:12px; font-weight:800; letter-spacing:.3px; cursor:pointer;
     align-items:center; justify-content:center;
   }
-  body.mode-video .cc-fab{display:flex;}
+  body.mode-video.show-cc .cc-fab{display:flex;}
   .cc-fab.active{border-color:var(--accent); color:var(--accent-strong); background:var(--accent-dim);}
   .speed-sheet-label{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px;}
   .speed-sheet-label span:last-child{font-family:var(--mono); font-size:20px; color:var(--accent-strong); font-weight:700;}
@@ -677,6 +677,18 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
       </label>
     </div>
 
+    <div class="set-label" style="margin-top:6px;">Video Altyazısı</div>
+    <div class="set-group">
+      <label class="toggle-row">
+        <div><div class="toggle-row-label">YouTube Altyazılarını Göster</div><div class="toggle-row-sub">Video modunda YouTube'un kendi altyazısını kalıcı olarak açar/kapatır</div></div>
+        <span class="switch"><input type="checkbox" id="ytCCToggle"><span class="track"><span class="thumb"></span></span></span>
+      </label>
+      <label class="toggle-row">
+        <div><div class="toggle-row-label">Ana Panelde CC Butonunu Göster</div><div class="toggle-row-sub">Altyazıyı anlık açıp kapatmak için; kapalıysa buton gizlenir</div></div>
+        <span class="switch"><input type="checkbox" id="ccBtnToggle"><span class="track"><span class="thumb"></span></span></span>
+      </label>
+    </div>
+
     <div class="set-label" style="margin-top:6px;">Kelime Defteri</div>
     <div class="set-group">
       <div class="set-label" style="text-transform:none; font-size:11px; font-weight:600; color:var(--text-secondary);">"Öğrendim" Butonuna Basınca</div>
@@ -871,7 +883,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   let vocab = [];
   let audioLoaded = false;
   let selectedLines = [];
-  let appSettings = {showBubble:true, pauseOnDict:false, learnedAction:'delete', ytCC:false};
+  let appSettings = {showBubble:true, pauseOnDict:false, learnedAction:'delete', ytCC:false, showCCBtn:true};
   const WORD_HOLD_MS = 500;
   let mode = 'podcast'; // 'podcast' | 'video'
   let videoTitle = '', videoLrcText = '';
@@ -1009,6 +1021,10 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   let ytCCFor = null; // altyazı tercihi en son hangi videoya uygulandı
   const ccBtn = document.getElementById('ccBtn');
   function updateCCUI(){
+    document.body.classList.toggle('show-cc', appSettings.showCCBtn !== false);
+    const t1 = document.getElementById('ytCCToggle'), t2 = document.getElementById('ccBtnToggle');
+    if(t1) t1.checked = !!appSettings.ytCC;
+    if(t2) t2.checked = appSettings.showCCBtn !== false;
     ccBtn.classList.toggle('active', !!appSettings.ytCC);
     ccBtn.setAttribute('aria-pressed', appSettings.ytCC ? 'true' : 'false');
     ccBtn.title = 'YouTube altyazısı: ' + (appSettings.ytCC ? 'açık' : 'kapalı');
@@ -1064,13 +1080,20 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     ytApplyCC(false);
     if(!appSettings.ytCC) ytAfterSeekCC();
   }
-  ccBtn.addEventListener('click', ()=>{
-    appSettings.ytCC = !appSettings.ytCC;
+  function setYtCC(on, quiet){
+    appSettings.ytCC = !!on;
     clearInterval(ytCCGuard); ytCCGuard = null;
     updateCCUI();
     persistAppSettings();
-    ytApplyCC(true);
-    showToast(appSettings.ytCC ? 'Altyazı: açık' : 'Altyazı: kapalı');
+    ytApplyCC(!quiet);
+    if(!quiet) showToast(appSettings.ytCC ? 'Altyazı: açık' : 'Altyazı: kapalı');
+  }
+  ccBtn.addEventListener('click', ()=> setYtCC(!appSettings.ytCC));
+  document.getElementById('ytCCToggle').addEventListener('change', e=> setYtCC(e.target.checked, true));
+  document.getElementById('ccBtnToggle').addEventListener('change', e=>{
+    appSettings.showCCBtn = e.target.checked;
+    updateCCUI();
+    persistAppSettings();
   });
 
   function ytOnError(e){
