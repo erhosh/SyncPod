@@ -921,7 +921,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
       ytPlayer = new YT.Player('ytPlayer', {
         videoId: initialId,
         playerVars: vars,
-        events: { onReady: ytOnReady, onStateChange: ytOnState, onError: ytOnError }
+        events: { onReady: ytOnReady, onStateChange: ytOnState, onError: ytOnError, onApiChange: ytOnApiChange }
       });
     })).catch(err=>{
       ytCreating = null;
@@ -958,6 +958,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     if(!ytReady) return;
     let st = -1;
     try{ st = ytPlayer.getPlayerState(); }catch(err){}
+    ytKillCC();
     try{ ytPlayer.seekTo(t, allowAhead !== false); }catch(err){}
     ytAfterSeekCC();
     if(st === YT_STATE.CUED || st === YT_STATE.UNSTARTED){
@@ -1033,12 +1034,27 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
       }
     }catch(err){}
   }
-  // Kapalıyken: sarma/arabellekten sonra YouTube altyazıyı kendiliğinden açabilir, tekrar kapat
+  // Kapalıyken altyazıyı anında söndür: modülü kaldır + aktif parçayı boşalt (parlamayı önler)
+  function ytKillCC(){
+    if(appSettings.ytCC || !ytPlayer) return;
+    try{ ytPlayer.unloadModule('captions'); }catch(err){}
+  }
+  // YouTube sarma sonrası altyazı modülünü kendiliğinden yükleyince olay anında kapat (gecikme yok)
+  function ytOnApiChange(){
+    if(appSettings.ytCC || !isVideoMode()) return;
+    ytKillCC();
+  }
+  // Ek güvence: sarmadan sonra ilk 2.5 sn boyunca sık aralıkla kontrol et
+  let ytCCGuard = null;
   function ytAfterSeekCC(){
     if(appSettings.ytCC) return;
-    [250, 900, 2200].forEach(ms=> setTimeout(()=>{
-      if(!appSettings.ytCC){ try{ ytPlayer.unloadModule('captions'); }catch(err){} }
-    }, ms));
+    ytKillCC();
+    clearInterval(ytCCGuard);
+    let n = 0;
+    ytCCGuard = setInterval(()=>{
+      ytKillCC();
+      if(++n >= 40 || appSettings.ytCC){ clearInterval(ytCCGuard); ytCCGuard = null; }
+    }, 60);
   }
   function ytCCOnPlaying(){
     let id = '';
@@ -1050,6 +1066,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   }
   ccBtn.addEventListener('click', ()=>{
     appSettings.ytCC = !appSettings.ytCC;
+    clearInterval(ytCCGuard); ytCCGuard = null;
     updateCCUI();
     persistAppSettings();
     ytApplyCC(true);
