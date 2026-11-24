@@ -188,7 +188,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   }
 
   .utility-row{
-    display:flex; align-items:center; justify-content:space-between; margin-top:12px;
+    display:flex; align-items:center; justify-content:flex-end; gap:14px; margin-top:12px;
   }
   .track-nav-group{
     display:flex; align-items:center; gap:16px; flex:0 0 auto;
@@ -313,7 +313,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     color:var(--text); font-size:11px; font-weight:700; font-family:var(--mono); cursor:pointer;
     display:flex; align-items:center; justify-content:center;
   }
-  .util-right{display:flex; align-items:center; gap:8px; flex:0 0 auto;}
+  .util-left{display:flex; align-items:center; gap:14px; flex:0 1 auto; min-width:0;}
   .cc-fab{
     display:none; flex:0 0 auto; width:44px; height:44px; border-radius:50%; background:var(--panel-2); border:1px solid var(--border);
     color:var(--text-secondary); font-size:12px; font-weight:800; letter-spacing:.3px; cursor:pointer;
@@ -549,16 +549,16 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   </div>
 
   <div class="utility-row">
-    <button class="menu-fab" id="menuFab" title="Kitaplık ve ayarlar">☰</button>
-    <div class="track-nav-group">
-      <button class="pl-ctrl-btn" id="npPrevBtn" title="Önceki parça">⏮</button>
-      <button class="pl-ctrl-btn" id="loopBtn" title="Döngü kapalı">↻</button>
-      <button class="pl-ctrl-btn" id="npNextBtn" title="Sonraki parça">⏭</button>
-    </div>
-    <div class="util-right">
+    <div class="util-left">
+      <div class="track-nav-group">
+        <button class="pl-ctrl-btn" id="npPrevBtn" title="Önceki parça">⏮</button>
+        <button class="pl-ctrl-btn" id="loopBtn" title="Döngü kapalı">↻</button>
+        <button class="pl-ctrl-btn" id="npNextBtn" title="Sonraki parça">⏭</button>
+      </div>
+      <button class="menu-fab" id="menuFab" title="Kitaplık ve ayarlar">☰</button>
       <button class="cc-fab" id="ccBtn" title="YouTube altyazısı: kapalı" aria-pressed="false">CC</button>
-      <button class="speed-fab" id="speedPillBtn" title="Oynatma Hızı"><span id="speedPillValue">1.0×</span></button>
     </div>
+    <button class="speed-fab" id="speedPillBtn" title="Oynatma Hızı"><span id="speedPillValue">1.0×</span></button>
   </div>
 </div>
 
@@ -4070,9 +4070,12 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
 })();
 </script>
 <script>
-if('serviceWorker' in navigator){
+// sw.js yoksa (ör. önizleme ortamı ya da dosya tek başına açıldığında) kayıt denenmez, hata üretilmez
+if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
   window.addEventListener('load', function(){
-    navigator.serviceWorker.register('sw.js').catch(function(e){ console.warn('SW kaydı başarısız:', e); });
+    fetch('sw.js', {method:'HEAD', cache:'no-store'}).then(function(r){
+      if(r.ok) return navigator.serviceWorker.register('sw.js');
+    }).catch(function(){});
   });
 }
 </script>
