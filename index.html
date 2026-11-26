@@ -2723,7 +2723,6 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     document.getElementById('fbConnectedPanel').style.display = 'block';
     document.getElementById('fbCodeDisplay').textContent = fbCode;
     fbUpdateAutoBtn();
-    statsCloudStart();
   }
   function fbUpdateAutoBtn(){
     const btn = document.getElementById('fbAutoSyncBtn');
@@ -2812,7 +2811,6 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
           document.getElementById('fbConnectPanel').style.display = 'block';
         }
       } else {
-        statsCloudStop();
         if(fbDb && fbCode && fbUid){ try{ fbDb.ref(fbPath(fbCode)+'/data').off(); }catch(e){} }
         fbUid = null;
         fbAuthReady = Promise.reject(new Error('login required'));
@@ -2872,7 +2870,6 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   document.getElementById('fbDisconnectBtn').addEventListener('click', async ()=>{
     if(!confirm('Bulut bağlantısını kesmek istiyor musun? (Buluttaki veri silinmez.)')) return;
     fbStopAutoSync();
-    statsCloudStop();
     fbCode = null;
     try{ await storage.set('fb-sync-code', JSON.stringify(null), false); }catch(e){}
     document.getElementById('fbConnectPanel').style.display = 'block';
@@ -4131,8 +4128,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   })();
 
   // ================= Dinleme / izleme istatistikleri =================
-  // Cihaz başına günlük kayıt: listen-stats = {devices:{<cihazId>:{days:{'YYYY-MM-DD':{pOn,pOff,v}}}}} (saniye).
-  // Her cihaz yalnızca KENDİ sayaçlarını artırır; ekranda gösterilen değer tüm cihazların toplamıdır.
+  // Günlük kayıt: listen-stats = {days:{'YYYY-MM-DD':{pOn,pOff,v}}} (saniye).
   //  pOn  = Podcast, ekran açıkken (uygulama görünür)
   //  pOff = Podcast, ekran kapalıyken (ekran kilitli / uygulama arka planda)
   //  v    = Video (ekran durumu önemsiz)
@@ -4140,10 +4136,8 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   // arka planda zamanlayıcı yavaşlasa bile süre kaybolmaz. Oynatma durumu değiştiğinde
   // (play/pause/mod değişimi/ekran açılıp kapanması) ve her saniye güncellenir.
   const STAT_MAX_GAP_MS = 130000; // donmuş sayfa sonrası tek seferde sayılacak üst sınır
-  let statsData = {devices:{}};
-  let statsDeviceId = 'd'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+  let statsData = {days:{}};
   let statsDirty = false, statsLastPersist = 0;
-  let statsCloudDirty = false, statsCloudLastPush = 0, statsCloudRef = null;
   let statKind = null;            // son güncellemeden bu yana çalan şey: 'podcast' | 'video' | null
   let statLastAt = Date.now();
   let statScreenOn = (document.visibilityState !== 'hidden');
@@ -4155,10 +4149,9 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   }
   function statAdd(dayKey, field, sec){
     if(!(sec > 0)) return;
-    const days = ownStatsDays();
-    const d = days[dayKey] || (days[dayKey] = {pOn:0, pOff:0, v:0});
+    const d = statsData.days[dayKey] || (statsData.days[dayKey] = {pOn:0, pOff:0, v:0});
     d[field] = (d[field] || 0) + sec;
-    statsDirty = true; statsCloudDirty = true;
+    statsDirty = true;
   }
   function currentPlayKind(){
     if(!isVideoMode()) return (audioLoaded && !audio.paused && !audio.ended) ? 'podcast' : null;
@@ -4185,46 +4178,13 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     statLastAt = now;
   }
 
-  function ownStatsDays(){
-    const d = statsData.devices[statsDeviceId] || (statsData.devices[statsDeviceId] = {days:{}});
-    return d.days;
-  }
-  function normalizeStats(x){
-    if(x && x.devices) return x.devices;
-    if(x && x.days) return {[statsDeviceId]: {days: x.days}};  // eski (tek cihaz) biçim
-    return {};
-  }
-  // Cihaz + gün + alan bazında en büyük değeri tutar. Bir cihazın sayaçları yalnızca artar ve yalnızca o cihaz
-  // tarafından artırılır; bu yüzden birleştirme süre kaybettirmez, çiftlemez ve farklı cihazlar toplanır.
   function mergeStatsObjects(a, b){
-    const out = {devices:{}};
-    [normalizeStats(a), normalizeStats(b)].forEach(devs=>{
-      Object.keys(devs).forEach(id=>{
-        const days = (devs[id] && devs[id].days) || {};
-        const od = out.devices[id] || (out.devices[id] = {days:{}});
-        Object.keys(days).forEach(k=>{
-          const t = od.days[k] || (od.days[k] = {pOn:0, pOff:0, v:0});
-          ['pOn','pOff','v'].forEach(f=>{ t[f] = Math.max(t[f]||0, Number(days[k][f])||0); });
-        });
-      });
-    });
-    return out;
-  }
-  function statsDaySum(key){
-    const out = {pOn:0, pOff:0, v:0};
-    Object.keys(statsData.devices).forEach(id=>{
-      const d = statsData.devices[id].days && statsData.devices[id].days[key];
-      if(d) ['pOn','pOff','v'].forEach(f=>{ out[f] += Number(d[f])||0; });
-    });
-    return out;
-  }
-  function statsAllDays(){
-    const out = {};
-    Object.keys(statsData.devices).forEach(id=>{
-      const days = statsData.devices[id].days || {};
+    const out = {days:{}};
+    [a, b].forEach(src=>{
+      const days = (src && src.days) || {};
       Object.keys(days).forEach(k=>{
-        const t = out[k] || (out[k] = {pOn:0, pOff:0, v:0});
-        ['pOn','pOff','v'].forEach(f=>{ t[f] += Number(days[k][f])||0; });
+        const t = out.days[k] || (out.days[k] = {pOn:0, pOff:0, v:0});
+        ['pOn','pOff','v'].forEach(f=>{ t[f] = Math.max(t[f]||0, Number(days[k][f])||0); });
       });
     });
     return out;
@@ -4238,25 +4198,10 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     try{ await storage.set('listen-stats', JSON.stringify(statsData), false); }catch(err){}
   }
   async function loadStats(){
-    let idRes = null, resStats = null;
-    try{ idRes = await storage.get('stats-device-id', false); }catch(err){}
-    try{ resStats = await storage.get('listen-stats', false); }catch(err){}
-    // --- buradan sonrası eşzamanlı (await yok): yükleme sırasında biriken süre kaybolmasın ---
-    const pending = statsData.devices[statsDeviceId];     // yükleme bitmeden sayılan süreler (artış)
-    delete statsData.devices[statsDeviceId];
-    let stored = null;
-    try{ if(idRes) stored = JSON.parse(idRes.value); }catch(err){}
-    if(stored) statsDeviceId = stored;
-    else{ try{ storage.set('stats-device-id', JSON.stringify(statsDeviceId), false).catch(()=>{}); }catch(err){} }
-    try{ if(resStats) statsData = mergeStatsObjects(JSON.parse(resStats.value), statsData); }catch(err){}
-    if(pending && pending.days){
-      const own = ownStatsDays();
-      Object.keys(pending.days).forEach(k=>{
-        const t = own[k] || (own[k] = {pOn:0, pOff:0, v:0});
-        ['pOn','pOff','v'].forEach(f=>{ t[f] += Number(pending.days[k][f])||0; });
-      });
-      statsDirty = true; statsCloudDirty = true;
-    }
+    try{
+      const res = await storage.get('listen-stats', false);
+      if(res) statsData = mergeStatsObjects(JSON.parse(res.value), statsData);
+    }catch(err){}
   }
   // Yedekten geri yükleme / bulut indirme: mevcut sayaçların üzerine yazmak yerine gün bazında
   // büyük olan değeri tutarak birleştirir.
@@ -4271,53 +4216,18 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     await storage.set(key, JSON.stringify(val), false);
   }
 
-  // ---- Bulut: cihazlar arası toplam ----
-  // Her cihaz yalnızca kendi düğümüne yazar (users/<uid>/syncpod/<kod>/stats/<cihazId>); diğer cihazların
-  // düğümleri dinlenip birleştirilir. Ana veri senkronundan bağımsızdır: sayfa yenilemez, çakışma olmaz.
-  function statsCloudStop(){
-    if(statsCloudRef){ try{ statsCloudRef.off(); }catch(err){} statsCloudRef = null; }
-  }
-  function statsCloudStart(){
-    if(!fbDb || !fbCode || !fbUid) return;
-    statsCloudStop();
-    const ref = fbDb.ref(fbPath(fbCode)+'/stats');
-    statsCloudRef = ref;
-    ref.on('value', async (snap)=>{
-      const val = snap.val();
-      if(!val) return;
-      const devices = {};
-      Object.keys(val).forEach(id=>{ if(val[id] && val[id].days) devices[id] = {days: val[id].days}; });
-      await statsLoadedPromise;
-      statsData = mergeStatsObjects(statsData, {devices});
-      statsDirty = true;
-      if(statsOverlayEl.classList.contains('show')) renderStats();
-    }, ()=>{});
-    statsCloudDirty = true; // kendi sayaçlarımı da gönder
-  }
-  async function statsCloudPush(){
-    if(!statsCloudDirty || !fbDb || !fbCode || !fbUid) return;
-    const own = statsData.devices[statsDeviceId];
-    if(!own) return;
-    statsCloudLastPush = Date.now();
-    statsCloudDirty = false;
-    try{
-      await fbDb.ref(fbPath(fbCode)+'/stats/'+statsDeviceId).set({updatedAt:new Date().toISOString(), days:own.days});
-    }catch(err){ statsCloudDirty = true; }
-  }
-
   audio.addEventListener('play', statAccrue);
   audio.addEventListener('pause', statAccrue);
   audio.addEventListener('ended', statAccrue);
   document.addEventListener('visibilitychange', ()=>{
     statAccrue();                                   // önceki aralık eski ekran durumuna yazılır
     statScreenOn = (document.visibilityState !== 'hidden');
-    if(!statScreenOn){ persistStatsNow(); statsCloudPush(); }
+    if(!statScreenOn) persistStatsNow();
   });
-  window.addEventListener('pagehide', ()=>{ statAccrue(); persistStatsNow(); statsCloudPush(); });
+  window.addEventListener('pagehide', ()=>{ statAccrue(); persistStatsNow(); });
   setInterval(()=>{
     statAccrue();
     if(statsDirty && Date.now() - statsLastPersist > 10000) persistStatsNow();
-    if(statsCloudDirty && Date.now() - statsCloudLastPush > 30000) statsCloudPush();
     if(statsOverlayEl.classList.contains('show')) renderStats();
   }, 1000);
 
@@ -4354,8 +4264,8 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     document.getElementById('statsTitle').textContent = video ? 'Video İstatistikleri' : 'Podcast İstatistikleri';
     document.getElementById('statsDayLabel').textContent =
       keyToDate(key).toLocaleDateString('tr-TR', {weekday:'long', day:'numeric', month:'long', year:'numeric'}) + (key===today ? ' (bugün)' : '');
-    const day = statsDaySum(key);
-    const days = Object.values(statsAllDays());
+    const day = statsData.days[key] || {pOn:0, pOff:0, v:0};
+    const days = Object.values(statsData.days);
     let html = '';
     if(!video){
       const pOn = day.pOn||0, pOff = day.pOff||0, dayTotal = pOn + pOff;
@@ -4387,10 +4297,6 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     document.getElementById('statsHint').textContent = video
       ? 'Süre, video gerçekten oynarken sayılır (duraklatılmış veya arabelleğe alınan süre sayılmaz).'
       : 'Ekran kapalı: ekran kilitliyken ya da uygulama arka plandayken dinlenen süre. Süre, ses gerçekten çalarken sayılır.';
-    const nDev = Object.keys(statsData.devices).length;
-    document.getElementById('statsHint').textContent += fbCode
-      ? ' Bulut senkronu açık: tüm cihazlarının süreleri toplanır'+(nDev > 1 ? ' ('+nDev+' cihaz).' : '.')
-      : " Süreleri cihazlar arasında toplamak için Ayarlar → Senkronizasyon'dan bir koda bağlan.";
   }
   function openStats(){
     statsDateEl.value = dayKeyOf(Date.now());
