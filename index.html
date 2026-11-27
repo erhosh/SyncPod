@@ -6,14 +6,14 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#0a0a0b">
+<meta name="theme-color" content="#0f0f10">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>SyncPod — Podcast Söz Senkronu</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Quicksand:wght@500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Quicksand:wght@500;600;700&family=Space+Mono:wght@400;700&family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
 <script>
 window.__fbLoadErrors = [];
 window.__fbLoadFallback = function(failedScriptEl, primaryName){
@@ -38,9 +38,9 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     --text:#ffffff;
     --text-secondary:#b3b3b3;
     --text-tertiary:#6f6f72;
-    --accent:#2eb872;
-    --accent-strong:#3ecf8e;
-    --accent-dim:rgba(46,184,114,0.14);
+    --accent:#ff7a1a;
+    --accent-strong:#ff9a3c;
+    --accent-dim:rgba(255,122,26,0.14);
     --secondary:#5b8def;
     --secondary-dim:rgba(91,141,239,0.14);
     --danger:#e2685c;
@@ -69,7 +69,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   .brand .mark{
     width:30px; height:30px; border-radius:8px; background:var(--accent);
     display:flex; align-items:center; justify-content:center;
-    font-family:var(--mono); font-weight:700; font-size:12px; color:#052e18;
+    font-family:var(--mono); font-weight:700; font-size:12px; color:#2a0e00;
   }
   .brand h1{font-size:15px; font-weight:700; margin:0; letter-spacing:-.2px;}
   .vocab-toggle{
@@ -293,7 +293,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
 
   .play-fab{
     position:fixed; z-index:65; width:48px; height:48px; border-radius:50%;
-    background:var(--accent); color:#052e18; border:none; font-size:16px;
+    background:var(--accent); color:#2a0e00; border:none; font-size:16px;
     display:flex; align-items:center; justify-content:center; cursor:grab;
     box-shadow:0 2px 10px rgba(0,0,0,.45);
     transition:left .25s cubic-bezier(.2,.8,.2,1), top .25s cubic-bezier(.2,.8,.2,1), opacity .4s ease;
@@ -405,7 +405,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   .switch .track{position:absolute; inset:0; background:var(--border); border-radius:12px; transition:background .2s; pointer-events:none;}
   .switch .thumb{position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:50%; background:var(--text); transition:transform .2s; pointer-events:none;}
   .switch input:checked ~ .track{background:var(--accent);}
-  .switch input:checked ~ .track .thumb{transform:translateX(18px); background:#052e18;}
+  .switch input:checked ~ .track .thumb{transform:translateX(18px); background:#2a0e00;}
 
   /* Library sheet */
   .menu-row{
@@ -475,7 +475,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   .drawer-overlay.show .drawer{transform:translateX(0);}
   .drawer-head{padding:16px 16px 10px; border-bottom:1px solid var(--border-soft); display:flex; justify-content:space-between; align-items:center;}
   .drawer-head h2{font-size:15px; margin:0; font-weight:700;}
-  .study-btn{margin:12px 16px 4px; background:var(--accent); color:#052e18; border:none; border-radius:11px; padding:12px; font-weight:700; font-size:13px; cursor:pointer;}
+  .study-btn{margin:12px 16px 4px; background:var(--accent); color:#2a0e00; border:none; border-radius:11px; padding:12px; font-weight:700; font-size:13px; cursor:pointer;}
   .study-btn:disabled{opacity:.3; cursor:default;}
   .drawer-body{flex:1; overflow-y:auto; padding:6px 14px;}
   .vocab-item{padding:11px 4px; border-bottom:1px solid var(--border-soft); display:flex; justify-content:space-between; align-items:flex-start; gap:8px;}
@@ -514,7 +514,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   .study-footer{flex:0 0 auto; display:flex; gap:8px; padding:12px 18px calc(20px + env(safe-area-inset-bottom)); justify-content:center; flex-wrap:wrap;}
   .study-action{border:1px solid var(--border); background:var(--panel-2); color:var(--text-secondary); border-radius:11px; padding:13px 28px; font-size:14px; font-weight:700; cursor:pointer; min-width:160px;}
   .study-action.primary{border-color:var(--accent); color:var(--accent-strong); background:var(--accent-dim);}
-  .study-action.flash{animation:studyFlash .26s ease-in-out; background:var(--accent); border-color:var(--accent); color:#052e18;}
+  .study-action.flash{animation:studyFlash .26s ease-in-out; background:var(--accent); border-color:var(--accent); color:#2a0e00;}
   @keyframes studyFlash{0%,100%{opacity:1;} 50%{opacity:.4;}}
   .study-empty{color:var(--text-tertiary); text-align:center; padding:40px 20px; font-size:13px; line-height:1.9;}
 
@@ -525,13 +525,222 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     opacity:0; transition:opacity .2s, transform .2s; z-index:90; pointer-events:none; max-width:88%; text-align:center;
   }
   .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  /* =====================================================================
+     ShortRest teması — yeşil tonlu
+     Koyu zemin, cam gibi parlak yuvarlak butonlar, geniş köşe yarıçapları,
+     kalın başlıklar. Seçili/aktif durumlar ShortRest'teki gibi altın tonunda.
+     ===================================================================== */
+  :root{
+    --bg:#0f0f10;
+    --panel:#171718;
+    --panel-2:#1f1f21;
+    --border:#303033;
+    --border-soft:#262628;
+    --text:#ffffff;
+    --text-secondary:#b8b8bb;
+    --text-tertiary:#7d7d82;
+    --accent:#ff7a1a;
+    --accent-strong:#ff9a3c;
+    --accent-deep:#d94a00;
+    --accent-dim:rgba(255,122,26,0.16);
+    --gold:#e3bb4d;
+    --gold-dim:rgba(227,187,77,0.16);
+    --radius:24px;
+    --sans:'Roboto','Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+    --glass:radial-gradient(130% 150% at 22% 0%, rgba(255,150,60,.36) 0%, rgba(120,52,12,.30) 48%, rgba(22,16,12,.96) 100%), #191513;
+    --glass-edge:rgba(255,255,255,.27);
+    --glass-shadow:inset 0 1px 0 rgba(255,255,255,.20), inset 0 -10px 16px rgba(0,0,0,.32), 0 3px 10px rgba(0,0,0,.5);
+    --gold-glass:radial-gradient(130% 150% at 22% 0%, rgba(255,226,130,.85) 0%, rgba(170,128,30,.72) 55%, rgba(70,52,10,.95) 100%), #7d5f17;
+    --accent-glass:radial-gradient(130% 150% at 25% 0%, #ffb066 0%, #ff7a1a 42%, #d94a00 100%);
+  }
+  button, input, select, textarea{font-family:inherit;}
+
+  /* Üst başlık */
+  header{padding:18px 16px 10px;}
+  .brand{gap:12px;}
+  .brand .mark{
+    width:42px; height:42px; flex:0 0 auto; display:block; background:none; border-radius:0;
+    filter:drop-shadow(0 2px 6px rgba(0,0,0,.5));
+  }
+  .brand h1{font-size:28px; font-weight:800; letter-spacing:-.5px;}
+  .vocab-toggle{
+    background:var(--glass); border:1.5px solid var(--glass-edge); box-shadow:var(--glass-shadow);
+    color:#fff; border-radius:999px; padding:12px 18px; font-size:15px; font-weight:700; gap:8px;
+  }
+  .vocab-toggle .count{background:rgba(0,0,0,.38); color:var(--accent-strong); font-size:12px; padding:2px 8px; border-radius:999px;}
+  .now-playing{font-size:13px; color:var(--text-secondary);}
+  .now-playing b{color:#fff; font-weight:700;}
+
+  /* Mod sekmeleri */
+  .mode-tab{
+    padding:12px 10px; border-radius:999px; font-size:14px; font-weight:700;
+    background:var(--glass); border:1.5px solid var(--glass-edge); box-shadow:var(--glass-shadow); color:var(--text-secondary);
+  }
+  .mode-tab.active{background:var(--gold-glass); color:#fff; border-color:rgba(255,255,255,.4);}
+
+  /* Video ve söz paneli */
+  .video-frame-box{border-radius:22px; border:1px solid var(--border);}
+  .immersive-toggle{
+    width:38px; height:38px; border-radius:50%; font-size:16px; color:#fff;
+    background:var(--glass); border:1.5px solid var(--glass-edge); box-shadow:var(--glass-shadow);
+  }
+  .splitter-grip{background:#4a4a4e;}
+  .readout{background:#0b0b0c; border:1px solid var(--border); border-radius:26px;}
+  .lyric-line.selected{border-radius:14px;}
+
+  /* Alt çubuk */
+  .bottom-bar{background:transparent; border-top:none; padding:6px 16px calc(14px + env(safe-area-inset-bottom));}
+  .time-row{font-family:var(--sans); font-size:14px; font-weight:500; color:var(--text-secondary); margin-bottom:2px;}
+  .time-row .cur{color:#fff; font-weight:700;}
+
+  /* Kaydırıcılar: dolu kısım yeşil, boş kısım açık gri (dolgu için aşağıdaki küçük betik --pct ayarlar) */
+  input[type=range]{height:30px; --pct:0%;}
+  input[type=range]::-webkit-slider-runnable-track{
+    height:10px; border-radius:6px;
+    background:linear-gradient(90deg, var(--accent) 0, var(--accent) var(--pct), #e4e4e6 var(--pct), #e4e4e6 100%);
+  }
+  input[type=range]::-webkit-slider-thumb,
+  #seekBar::-webkit-slider-thumb,
+  #speedSlider::-webkit-slider-thumb{
+    width:26px; height:26px; margin-top:-8px; border:none; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #ffb066, var(--accent) 60%, var(--accent-deep));
+    box-shadow:0 0 0 4px rgba(255,122,26,.25), 0 2px 6px rgba(0,0,0,.5);
+  }
+  input[type=range]::-moz-range-track{height:10px; border-radius:6px; background:#e4e4e6;}
+  input[type=range]::-moz-range-progress{height:10px; border-radius:6px; background:var(--accent);}
+  input[type=range]::-moz-range-thumb,
+  #seekBar::-moz-range-thumb,
+  #speedSlider::-moz-range-thumb{
+    width:26px; height:26px; border:none; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #ffb066, var(--accent) 60%, var(--accent-deep));
+    box-shadow:0 0 0 4px rgba(255,122,26,.25), 0 2px 6px rgba(0,0,0,.5);
+  }
+
+  /* Ana kontroller */
+  .controls-row{gap:8px; margin-top:12px;}
+  .ctrl-btn{
+    width:52px; height:52px; font-size:18px; color:#fff;
+    background:var(--glass); border:1.5px solid var(--glass-edge); box-shadow:var(--glass-shadow);
+  }
+  .ctrl-label{font-size:9.5px; color:var(--text-tertiary); font-weight:500;}
+  .play-placeholder{width:54px; height:54px;}
+  .play-fab{
+    width:54px; height:54px; font-size:18px; color:#fff;
+    background:var(--accent-glass); border:1.5px solid rgba(255,255,255,.4);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.4), 0 4px 14px rgba(0,0,0,.55);
+  }
+
+  /* Alt yardımcı satır */
+  .utility-row{justify-content:space-between; gap:6px; margin-top:14px;}
+  .util-left{flex:1 1 auto; justify-content:space-between; gap:6px;}
+  .track-nav-group{gap:6px;}
+  .pl-ctrl-btn, .menu-fab, .stats-fab, .cc-fab, .speed-fab{
+    width:41px; height:41px; color:#fff;
+    background:var(--glass); border:1.5px solid var(--glass-edge); box-shadow:var(--glass-shadow);
+  }
+  .pl-ctrl-btn.active, .cc-fab.active{background:var(--gold-glass); color:#fff; border-color:rgba(255,255,255,.4);}
+  .speed-fab{background:var(--gold-glass); border-color:rgba(255,255,255,.4); font-family:var(--sans); font-size:12.5px; font-weight:800;}
+
+  /* Alt sayfalar (sheet) */
+  .sheet{background:#141415; border:1px solid #2e2e30; border-bottom:none; border-radius:30px 30px 0 0;}
+  .sheet-handle{background:#3c3c40;}
+  .sheet-head h2{font-size:20px; font-weight:800; letter-spacing:-.2px;}
+  .close-x{
+    display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;
+    width:36px; height:36px; border-radius:50%; font-size:15px; color:#fff;
+    background:var(--glass); border:1.5px solid var(--glass-edge); box-shadow:var(--glass-shadow);
+  }
+  .set-label, .wsec-label, .stat-card-title{text-transform:none; letter-spacing:0; font-size:13px; font-weight:500; color:var(--text-secondary);}
+  .lib-hint{font-size:12.5px; color:#9a9a9f; line-height:1.55;}
+
+  .set-opt{
+    padding:10px 16px; border-radius:999px; font-size:13px; font-weight:600; color:var(--text-secondary);
+    background:var(--glass); border:1.5px solid var(--glass-edge); box-shadow:var(--glass-shadow);
+  }
+  .set-opt.active{background:var(--gold-glass); color:#fff; border-color:rgba(255,255,255,.4);}
+  .menu-row{
+    border-radius:999px; padding:15px 20px; text-align:center; font-size:14.5px; font-weight:700;
+    background:var(--glass); border:1.5px solid var(--glass-edge); box-shadow:var(--glass-shadow); color:#fff;
+  }
+  .menu-row.active{background:var(--gold-glass); color:#fff; border-color:rgba(255,255,255,.4);}
+  .switch .track{background:#3a3a3d;}
+  .switch input:checked ~ .track{background:var(--accent);}
+  .switch input:checked ~ .track .thumb{background:#fff;}
+
+  /* Birincil (yeşil) butonlar */
+  .save-playlist-btn, .study-btn, .yt-add-row button, .study-action.primary{
+    background:var(--accent-glass); color:#fff; border:1.5px solid rgba(255,255,255,.35);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.35), 0 3px 10px rgba(0,0,0,.5);
+    text-shadow:0 1px 2px rgba(0,0,0,.35); border-radius:999px; font-weight:800;
+  }
+  .save-playlist-btn{padding:14px;}
+  .study-btn{padding:14px;}
+  .yt-add-row input{border-radius:18px; padding:14px 16px; background:#1b1b1d; border:1px solid #333336; font-size:14px;}
+  .yt-add-row button{padding:0 22px;}
+
+  /* Oynatma listesi kartları */
+  .playlist-item{
+    background:var(--panel-2); border:1px solid var(--border-soft); border-radius:20px;
+    padding:14px; margin-bottom:10px; gap:10px;
+  }
+  .playlist-item.current{background:var(--panel-2); border-color:var(--gold); box-shadow:0 0 0 1px rgba(227,187,77,.35);}
+  .pl-title{font-size:15px; font-weight:700;}
+  .pl-sub{font-size:11.5px; color:var(--text-secondary); margin-top:3px;}
+  .pl-del, .vocab-del{
+    display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;
+    width:34px; height:34px; padding:0; border-radius:50%; font-size:14px; color:#fff;
+    background:#2a2a2d; border:1px solid #3a3a3e;
+  }
+
+  /* Kelime sayfası */
+  .word-title{font-size:26px; font-weight:800;}
+  .save-btn{border-radius:999px; padding:10px 16px; background:var(--glass); border:1.5px solid var(--glass-edge); box-shadow:var(--glass-shadow); color:#fff; font-weight:700;}
+  .save-btn.saved{background:var(--secondary-dim); border-color:var(--secondary); box-shadow:none; color:var(--secondary);}
+  .quick-translation{color:var(--accent-strong); font-weight:800;}
+  .chip{border-radius:999px; padding:5px 12px; font-size:12px;}
+  .word-bubble{border-radius:14px;}
+
+  /* Kelime defteri */
+  .drawer{background:#141415; border-left:1px solid #2e2e30; border-radius:28px 0 0 28px;}
+  .drawer-head h2{font-size:20px; font-weight:800;}
+  .study-btn{margin:12px 16px 6px;}
+  .vocab-item{background:var(--panel-2); border:none; border-radius:18px; padding:14px; margin-bottom:8px;}
+  .vocab-item .vw{font-size:15px;}
+  .vocab-item .vt{color:var(--accent-strong);}
+
+  /* Kartlar */
+  .study-overlay{background:var(--bg);}
+  .card{background:var(--panel); border-radius:28px; border:1px solid var(--border);}
+  .card-word{font-weight:800;}
+  .cb-translation{color:var(--accent-strong);}
+  .study-shuffle{border-radius:999px; padding:9px 15px; background:var(--glass); border:1.5px solid var(--glass-edge); box-shadow:var(--glass-shadow); color:#fff; font-weight:700;}
+  .study-shuffle.active{background:var(--gold-glass); color:#fff; border-color:rgba(255,255,255,.4);}
+  .study-action{border-radius:999px; padding:15px 28px; background:var(--glass); border:1.5px solid var(--glass-edge); box-shadow:var(--glass-shadow); color:#fff;}
+  .study-action.flash{background:var(--accent);}
+
+  /* İstatistikler */
+  .stat-card{background:var(--panel-2); border:1px solid var(--border-soft); border-radius:22px; padding:16px 18px;}
+  .stat-big{font-size:30px; font-weight:800; color:var(--accent-strong);}
+  .stat-sub{color:var(--text-secondary);}
+  .stat-bar{height:10px; border-radius:6px;}
+  .stats-nav-btn{border-radius:999px; background:var(--glass); border:1.5px solid var(--glass-edge); box-shadow:var(--glass-shadow); color:#fff;}
+  .stats-today-btn{background:var(--gold-glass); border-color:rgba(255,255,255,.4); color:#fff;}
+  .stats-date-row input[type=date]{border-radius:18px; background:#1b1b1d; border:1px solid #333336;}
+
+  /* Hız sayfası */
+  .speed-step-btn{width:42px; height:42px; background:var(--glass); border:1.5px solid var(--glass-edge); box-shadow:var(--glass-shadow); color:#fff;}
+  .speed-step-btn:active{background:var(--accent-glass); color:#fff;}
+
+  /* Bildirim */
+  .toast{background:#202022; border:1.5px solid var(--glass-edge); border-radius:18px; font-weight:500;}
 </style>
 </head>
 <body>
 
 <header>
   <div class="brand">
-    <div class="mark">SP</div>
+    <svg class="mark" viewBox="0 0 512 512" aria-hidden="true"><defs><linearGradient id="spLogoGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f59e0b"/><stop offset="1" stop-color="#f72a00"/></linearGradient></defs><rect width="512" height="512" rx="130" fill="url(#spLogoGrad)"/><g fill="#fff"><rect x="240" y="78" width="32" height="356" rx="16"/><rect x="180" y="135" width="32" height="243" rx="16"/><rect x="300" y="135" width="32" height="243" rx="16"/><rect x="118" y="222" width="32" height="68" rx="16"/><rect x="362" y="222" width="32" height="68" rx="16"/></g></svg>
     <h1>SyncPod</h1>
   </div>
   <button class="vocab-toggle" id="vocabToggle">📖 Defter <span class="count" id="vocabCount">0</span></button>
@@ -4418,6 +4627,19 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   loadPlayFabState();
   fbInit();
   enforceLandscapeFullscreenRule();
+})();
+</script>
+<script>
+// Kaydırıcıların dolu kısmını (yeşil) güncel tutar — yalnızca görünüm, davranışı etkilemez
+(function(){
+  var els = ['seekBar','speedSlider'].map(function(id){ return document.getElementById(id); }).filter(Boolean);
+  function fill(el){
+    var min = parseFloat(el.min) || 0, max = parseFloat(el.max) || 100, v = parseFloat(el.value) || 0;
+    var p = max > min ? Math.max(0, Math.min(100, (v-min)/(max-min)*100)) : 0;
+    el.style.setProperty('--pct', p+'%');
+  }
+  els.forEach(function(el){ el.addEventListener('input', function(){ fill(el); }); el.addEventListener('change', function(){ fill(el); }); fill(el); });
+  setInterval(function(){ els.forEach(fill); }, 200);
 })();
 </script>
 <script>
