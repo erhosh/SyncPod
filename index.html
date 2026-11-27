@@ -779,6 +779,104 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   .pl-ctrl-btn, .menu-fab, .stats-fab, .cc-fab, .speed-fab{width:34px; height:34px; font-size:13px; border-width:1px;}
   .speed-fab{font-size:11px;}
   .track-nav-group{gap:5px;}
+  .ctrl-label{font-size:9px;}
+
+  /* =====================================================================
+     Kompakt menüler — Kitaplık, Ayarlar, Sözlük, Defter, Kartlar, İstatistik
+     Boyutlar ana sayfadaki butonlarla (34–40px, 12–13px yazı) uyumlu.
+     ===================================================================== */
+  .sheet{padding:10px 16px calc(16px + env(safe-area-inset-bottom)); border-radius:24px 24px 0 0; max-height:88vh;}
+  .sheet-handle{margin:0 auto 8px;}
+  .sheet-head{margin-bottom:6px; align-items:center;}
+  .sheet-head h2{font-size:16px; font-weight:700; letter-spacing:0;}
+  .close-x{width:30px; height:30px; font-size:12px; border-width:1px;}
+
+  .set-label, .wsec-label, .stat-card-title{font-size:12px; margin-bottom:5px;}
+  .set-group{margin-bottom:10px;}
+  .set-options{gap:6px;}
+  .set-opt{padding:7px 12px; font-size:12px; border-width:1px;}
+
+  .toggle-row{padding:8px 0; gap:12px;}
+  .toggle-row-label{font-size:12.5px;}
+  .toggle-row-sub{font-size:10.5px; margin-top:1px;}
+  .switch{width:38px; height:22px;}
+  .switch .thumb{width:18px; height:18px;}
+  .switch input:checked ~ .track .thumb{transform:translateX(16px);}
+
+  .menu-row{padding:9px 14px; font-size:13px; margin-bottom:6px; border-width:1px;}
+  .lib-hint{font-size:11px; margin:2px 0 8px; line-height:1.45;}
+  .save-playlist-btn{padding:9px; font-size:12.5px; margin-top:8px; border-width:1px;}
+  .study-btn{padding:10px; font-size:12.5px; margin:8px 14px 4px; border-width:1px;}
+
+  .yt-add-row{gap:6px; margin-bottom:6px;}
+  .yt-add-row input{padding:9px 12px; font-size:13px; border-radius:14px;}
+  .yt-add-row button{padding:0 16px; font-size:12.5px; border-width:1px;}
+
+  .playlist-item{padding:8px 12px; margin-bottom:6px; border-radius:16px; gap:8px;}
+  .pl-title{font-size:13px;}
+  .pl-sub{font-size:10.5px; margin-top:2px;}
+  .pl-del, .vocab-del{width:28px; height:28px; font-size:12px;}
+
+  /* Kelime sayfası */
+  .word-title{font-size:20px;}
+  .word-phonetic{font-size:11px;}
+  .save-btn{padding:7px 12px; font-size:12px; border-width:1px;}
+  .wsec{margin-top:12px;}
+  .quick-translation{font-size:18px;}
+  .def-text{font-size:13px;}
+  .def-example{font-size:12px;}
+  .chip{padding:3px 10px; font-size:11px;}
+  .word-bubble{font-size:12px; padding:6px 10px;}
+  .selection-original{font-size:12.5px;}
+  .selection-chip{padding:7px 10px; font-size:12px;}
+  .selection-chip .chip-x{width:20px; height:20px; font-size:10px;}
+  .external-fallback{margin-top:10px;}
+
+  /* Kelime defteri */
+  .drawer{border-radius:22px 0 0 22px;}
+  .drawer-head{padding:12px 14px 8px;}
+  .drawer-head h2{font-size:16px; font-weight:700;}
+  .drawer-body{padding:4px 12px;}
+  .vocab-item{padding:10px 12px; margin-bottom:6px; border-radius:14px;}
+  .vocab-item .vw{font-size:14px;}
+  .vocab-item .vt{font-size:12px;}
+  .vocab-item .vd{font-size:11px;}
+  .drawer-empty{font-size:12px; padding:40px 16px;}
+
+  /* Kartlar */
+  .study-head{padding:10px 14px;}
+  .study-shuffle{padding:6px 12px; font-size:11.5px; border-width:1px;}
+  .card{border-radius:22px; padding:20px 18px;}
+  .card-word{font-size:26px;}
+  .card-phonetic{font-size:12px;}
+  .card-hint{font-size:11px;}
+  .card-back .cb-translation{font-size:20px;}
+  .meaning-def{font-size:13px;}
+  .meaning-ex{font-size:12px;}
+  .study-footer{padding:10px 14px calc(14px + env(safe-area-inset-bottom));}
+  .study-action{padding:10px 22px; font-size:13px; min-width:130px; border-width:1px;}
+
+  /* İstatistikler */
+  .stats-date-row{gap:6px;}
+  .stats-nav-btn{min-width:34px; height:34px; font-size:14px; padding:0 8px; border-width:1px;}
+  .stats-today-btn{font-size:11.5px;}
+  .stats-date-row input[type=date]{padding:7px 10px; font-size:13px; border-radius:14px;}
+  .stats-day-label{font-size:11px; margin:2px 2px 8px;}
+  .stat-card{padding:12px 14px; border-radius:18px; margin-bottom:8px;}
+  .stat-big{font-size:22px;}
+  .stat-sub{font-size:11px;}
+  .stat-row{font-size:12px; padding-top:6px;}
+  .stat-bar{height:8px; margin-top:8px;}
+
+  /* Hız sayfası */
+  .speed-step-btn{width:34px; height:34px; font-size:16px; border-width:1px;}
+  .speed-sheet-label span:last-child{font-size:18px;}
+
+  /* Bildirim */
+  .toast{font-size:12px; padding:8px 14px; border-width:1px; border-radius:14px;}
+
+  /* Senkron kodu kutusu (satır içi stili geçersiz kılar) */
+  #fbCodeInput{padding:8px 12px !important; font-size:12.5px !important; margin:6px 0 !important; border-radius:14px !important;}
 </style>
 </head>
 <body>
