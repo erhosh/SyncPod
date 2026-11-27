@@ -735,6 +735,50 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
 
   /* Bildirim */
   .toast{background:#202022; border:1.5px solid var(--glass-edge); border-radius:18px; font-weight:500;}
+
+  /* =====================================================================
+     Kompakt yerleşim — üst ve alt kontrol alanları küçültüldü ki
+     video ve söz pencereleri daha çok yer kaplasın.
+     ===================================================================== */
+  header{padding:8px 14px 4px;}
+  .brand{gap:8px;}
+  .brand .mark{width:30px; height:30px;}
+  .brand h1{font-size:19px; letter-spacing:-.3px;}
+  .vocab-toggle{padding:6px 12px; font-size:12.5px; gap:6px; border-width:1px;}
+  .vocab-toggle .count{font-size:10.5px; padding:1px 6px;}
+  .now-playing-bar{padding:0 12px 4px;}
+  .now-playing{font-size:11.5px;}
+  .mode-tabs{padding:0 12px 6px; gap:6px;}
+  .mode-tab{padding:6px 8px; font-size:12.5px; border-width:1px;}
+  .video-wrap{padding:0 12px 2px;}
+  .splitter.show{height:14px;}
+  .readout{border-radius:20px;}
+  .immersive-toggle{width:30px; height:30px; font-size:13px; border-width:1px;}
+
+  .bottom-bar{padding:2px 14px calc(8px + env(safe-area-inset-bottom));}
+  .time-row{font-size:11.5px; margin-bottom:0;}
+  input[type=range]{height:22px;}
+  input[type=range]::-webkit-slider-runnable-track{height:7px; border-radius:5px;}
+  input[type=range]::-webkit-slider-thumb,
+  #seekBar::-webkit-slider-thumb,
+  #speedSlider::-webkit-slider-thumb{width:20px; height:20px; margin-top:-6.5px; box-shadow:0 0 0 3px rgba(255,122,26,.25), 0 2px 5px rgba(0,0,0,.5);}
+  input[type=range]::-moz-range-track,
+  input[type=range]::-moz-range-progress{height:7px; border-radius:5px;}
+  input[type=range]::-moz-range-thumb,
+  #seekBar::-moz-range-thumb,
+  #speedSlider::-moz-range-thumb{width:20px; height:20px; box-shadow:0 0 0 3px rgba(255,122,26,.25), 0 2px 5px rgba(0,0,0,.5);}
+
+  .controls-row{gap:6px; margin-top:2px;}
+  .ctrl-item{gap:2px;}
+  .ctrl-btn{width:40px; height:40px; font-size:15px; border-width:1px;}
+  .ctrl-label{font-size:8px;}
+  .play-placeholder{width:44px; height:44px;}
+  .play-fab{width:44px; height:44px; font-size:15px; border-width:1px;}
+
+  .utility-row{margin-top:6px;}
+  .pl-ctrl-btn, .menu-fab, .stats-fab, .cc-fab, .speed-fab{width:34px; height:34px; font-size:13px; border-width:1px;}
+  .speed-fab{font-size:11px;}
+  .track-nav-group{gap:5px;}
 </style>
 </head>
 <body>
