@@ -1139,7 +1139,6 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
       <div class="wsec-label">Çeviri</div>
       <div id="selectionTranslation"><div class="loading-row"><span class="spinner"></span> çevriliyor…</div></div>
     </div>
-    <button class="menu-row" id="clearSelectionBtn" style="margin-top:16px; text-align:center; color:var(--danger);">Seçimi Temizle</button>
   </div>
 </div>
 
@@ -1960,10 +1959,9 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     if(wasPlayingBeforeSelection) safePlay();
     wasPlayingBeforeSelection = false;
   }
-  document.getElementById('closeSelection').addEventListener('click', ()=>{
-    document.getElementById('selectionOverlay').classList.remove('show');
-  });
-  document.getElementById('clearSelectionBtn').addEventListener('click', clearSelection);
+  // ✕ clears the selection and puts playback back as it was: resumes only if it was
+  // playing when the selection started; stays paused if it was already paused.
+  document.getElementById('closeSelection').addEventListener('click', clearSelection);
   document.getElementById('selectionOverlay').addEventListener('click', e=>{
     if(e.target.id==='selectionOverlay') document.getElementById('selectionOverlay').classList.remove('show');
   });
