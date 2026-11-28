@@ -1299,6 +1299,9 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   let ytReadyQueue = [];
   let ytCurrentId = null;
   let ytIntendPlay = false;   // true while the user/app wants playback running
+  // True while the dictionary sheet is open with "pause on dictionary" on. While set, nothing
+  // (a delayed line-tap seek, a stale autoplay, YouTube's own state flips) may start playback.
+  let dictPauseLock = false;
   let ytLastState = -2;
   let ytRateTimer = null;
 
@@ -1390,6 +1393,13 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     if(!isVideoMode()){
       // Podcast mode is active — the video must never keep playing invisibly underneath.
       if(st === YT_STATE.PLAYING){ try{ ytPlayer.pauseVideo(); }catch(err){} }
+      ytLastState = st;
+      return;
+    }
+    if(dictPauseLock && (st === YT_STATE.PLAYING || st === YT_STATE.BUFFERING)){
+      // Something started playback while the dictionary is open — put it straight back.
+      ytIntendPlay = false;
+      try{ ytPlayer.pauseVideo(); }catch(err){}
       ytLastState = st;
       return;
     }
@@ -2561,6 +2571,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
 
   let playBusy = false;
   function safePlay(){
+    if(dictPauseLock) return; // dictionary sheet is open: only closeWordSheet() may resume
     if(isVideoMode()){
       if(!mediaIsReady()){ showToast('Önce ☰ menüsünden bir video yükle'); return; }
       ytIntendPlay = true;
@@ -2596,7 +2607,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   const seekBar = document.getElementById('seekBar');
   const playFab = document.getElementById('playFab');
 
-  audio.addEventListener('play', ()=>{ playFab.textContent='❚❚'; if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing'; if(!isVideoMode()){ clearTimeout(userScrollDebounce); userScrolling = false; scrollToActiveLine(true); } });
+  audio.addEventListener('play', ()=>{ if(dictPauseLock){ audio.pause(); return; } playFab.textContent='❚❚'; if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing'; if(!isVideoMode()){ clearTimeout(userScrollDebounce); userScrolling = false; scrollToActiveLine(true); } });
   audio.addEventListener('pause', ()=>{ playFab.textContent='▶'; if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused'; });
   audio.addEventListener('loadedmetadata', ()=>{
     seekBar.max = audio.duration;
@@ -3605,8 +3616,15 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     document.getElementById('translateFallbackLink').href = 'https://translate.google.com/?sl=en&tl=tr&text='+encodeURIComponent(word)+'&op=translate';
 
     if(!isUpdate){
-      if(appSettings.pauseOnDict && !isPaused()){
-        wasPlayingBeforeDict = true;
+      // A tap shortly before the hold may have queued a delayed "seek + play" — cancel it,
+      // otherwise it fires after the sheet opened and restarts the video from the line start.
+      if(pendingSeek){ clearTimeout(pendingSeek.timer); pendingSeek = null; }
+      if(appSettings.pauseOnDict){
+        const sheetAlreadyOpen = wordOverlay.classList.contains('show');
+        // Opening another word while the sheet is already open must not forget that
+        // playback was running before the first one.
+        if(!sheetAlreadyOpen) wasPlayingBeforeDict = !isPaused();
+        dictPauseLock = true;
         mediaPause();
       }else{
         wasPlayingBeforeDict = false;
@@ -3681,6 +3699,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   let wasPlayingBeforeDict = false;
   function closeWordSheet(){
     wordOverlay.classList.remove('show');
+    dictPauseLock = false;
     if(appSettings.pauseOnDict && wasPlayingBeforeDict){ safePlay(); }
     wasPlayingBeforeDict = false;
   }
