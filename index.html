@@ -1144,7 +1144,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
 </div>
 
 <div class="selection-chip" id="selectionChip">
-  <span>[<span id="selectionChipCount">0</span>] Anlamı Göster</span>
+  <span>[<span id="selectionChipCount">0</span>] Çevir</span>
   <span class="chip-x" id="selectionChipClose">✕</span>
 </div>
 
@@ -1302,6 +1302,46 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   // True while the dictionary sheet is open with "pause on dictionary" on. While set, nothing
   // (a delayed line-tap seek, a stale autoplay, YouTube's own state flips) may start playback.
   let dictPauseLock = false;
+
+  // ===== Resume positions: remember where each podcast track / YouTube video was left =====
+  // Keys: 'p:<track id>' for podcast tracks, 'v:<youtube id>' for videos. Values: seconds.
+  let resumePos = {};
+  const audioResume = {key:null, armed:false, pos:0}; // armed = restore finished, recording allowed
+  const ytResume = {key:null, armed:false};
+  let resumeDirty = false, resumeLastSave = 0;
+  (async function(){
+    try{
+      const r = await storage.get('resume-positions', false);
+      if(r && r.value){ resumePos = Object.assign(JSON.parse(r.value) || {}, resumePos); }
+    }catch(e){}
+  })();
+  function resumeGet(key){ const v = key && resumePos[key]; return (v && v > 3) ? v : 0; }
+  function resumeRecord(rs, t, dur, force){
+    if(!rs.key || !rs.armed || !(t >= 0)) return;
+    if(dur && t > dur - 5) delete resumePos[rs.key]; // finished: next time start from the top
+    else resumePos[rs.key] = Math.floor(t);
+    resumeDirty = true;
+    if(force || Date.now() - resumeLastSave > 4000) resumeFlush();
+  }
+  function resumeFlush(){
+    if(!resumeDirty) return;
+    resumeDirty = false; resumeLastSave = Date.now();
+    try{ storage.set('resume-positions', JSON.stringify(resumePos), false).catch(()=>{}); }catch(e){}
+  }
+  function ytNow(){ try{ return ytPlayer.getCurrentTime() || 0; }catch(e){ return 0; } }
+  function ytDur(){ try{ return ytPlayer.getDuration() || 0; }catch(e){ return 0; } }
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState === 'hidden'){
+      resumeRecord(audioResume, audio.currentTime, audio.duration, true);
+      if(ytReady) resumeRecord(ytResume, ytNow(), ytDur(), true);
+      resumeFlush();
+    }
+  });
+  window.addEventListener('pagehide', ()=>{
+    resumeRecord(audioResume, audio.currentTime, audio.duration, true);
+    if(ytReady) resumeRecord(ytResume, ytNow(), ytDur(), true);
+    resumeFlush();
+  });
   let ytLastState = -2;
   let ytRateTimer = null;
 
@@ -1352,16 +1392,22 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     q.forEach(fn=>{ try{ fn(); }catch(err){} });
   }
 
-  function ytLoad(videoId, autoPlay){
+  function ytLoad(videoId, autoPlay, startAt){
     ytCurrentId = videoId;
     ytEnsurePlayer(videoId).then(()=>{
       if(ytCurrentId !== videoId) return; // a newer pick superseded this one
       let cur = '';
       try{ cur = (ytPlayer.getVideoData() || {}).video_id || ''; }catch(err){}
       if(cur !== videoId){
-        if(autoPlay) ytPlayer.loadVideoById(videoId); else ytPlayer.cueVideoById(videoId);
-      }else if(autoPlay){
-        ytPlayer.playVideo();
+        const o = {videoId, startSeconds: startAt || 0};
+        if(autoPlay) ytPlayer.loadVideoById(o); else ytPlayer.cueVideoById(o);
+      }else{
+        // Same video already in the player (e.g. the very first load): only jump to the
+        // saved spot if it hasn't started yet — never yank a video that is already running.
+        let st = -1;
+        try{ st = ytPlayer.getPlayerState(); }catch(err){}
+        if(startAt && (st === -1 || st === YT_STATE.CUED)) ytSeek(startAt, true);
+        if(autoPlay) ytPlayer.playVideo();
       }
     }).catch(()=>{});
   }
@@ -1393,6 +1439,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     if(!isVideoMode()){
       // Podcast mode is active — the video must never keep playing invisibly underneath.
       if(st === YT_STATE.PLAYING){ try{ ytPlayer.pauseVideo(); }catch(err){} }
+      if(st === YT_STATE.PAUSED) resumeRecord(ytResume, ytNow(), ytDur(), true);
       ytLastState = st;
       return;
     }
@@ -1408,6 +1455,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
       playFab.textContent = '❚❚';
       if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
       if(st === YT_STATE.PLAYING){
+        ytResume.armed = true; // the start position (if any) has been applied by now
         ytCCOnPlaying();
         if(ytLastState !== YT_STATE.PLAYING && ytLastState !== YT_STATE.BUFFERING){
           clearTimeout(userScrollDebounce); userScrolling = false; scrollToActiveLine(true);
@@ -1416,6 +1464,8 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
       }
     }else if(st === YT_STATE.PAUSED || st === YT_STATE.ENDED || st === YT_STATE.CUED){
       if(st !== YT_STATE.CUED) ytIntendPlay = false;
+      if(st === YT_STATE.PAUSED) resumeRecord(ytResume, ytNow(), ytDur(), true);
+      if(st === YT_STATE.ENDED && ytResume.key){ delete resumePos[ytResume.key]; resumeDirty = true; resumeFlush(); }
       playFab.textContent = '▶';
       if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
       if(st === YT_STATE.ENDED && videoLoopMode !== 'off'){
@@ -1528,6 +1578,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     }
     if(!sb.matches(':active')) sb.value = t;
     document.getElementById('curTime').textContent = fmtTime(t);
+    resumeRecord(ytResume, t, d);
     updateActiveLine();
   }, 150);
 
@@ -2608,12 +2659,21 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   const playFab = document.getElementById('playFab');
 
   audio.addEventListener('play', ()=>{ if(dictPauseLock){ audio.pause(); return; } playFab.textContent='❚❚'; if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing'; if(!isVideoMode()){ clearTimeout(userScrollDebounce); userScrolling = false; scrollToActiveLine(true); } });
-  audio.addEventListener('pause', ()=>{ playFab.textContent='▶'; if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused'; });
+  audio.addEventListener('pause', ()=>{ if(!isVideoMode()) resumeRecord(audioResume, audio.currentTime, audio.duration, true); playFab.textContent='▶'; if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused'; });
   audio.addEventListener('loadedmetadata', ()=>{
     seekBar.max = audio.duration;
     document.getElementById('durTime').textContent = fmtTime(audio.duration);
   });
+  audio.addEventListener('loadedmetadata', ()=>{
+    // Restore the saved position once, as soon as the duration is known.
+    if(audioResume.pos && isFinite(audio.duration) && audioResume.pos < audio.duration - 5){
+      try{ audio.currentTime = audioResume.pos; }catch(e){}
+    }
+    audioResume.pos = 0;
+    audioResume.armed = true;
+  });
   audio.addEventListener('timeupdate', ()=>{
+    if(!isVideoMode()) resumeRecord(audioResume, audio.currentTime, audio.duration);
     if(!seekBar.matches(':active')) seekBar.value = audio.currentTime;
     document.getElementById('curTime').textContent = fmtTime(audio.currentTime);
     updateActiveLine();
@@ -2624,7 +2684,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     const v = parseFloat(seekBar.value);
     if(isVideoMode()) ytSeek(v, false); else mediaSeek(v);
   });
-  seekBar.addEventListener('change', ()=>{ if(isVideoMode()) ytSeek(parseFloat(seekBar.value), true); });
+  seekBar.addEventListener('change', ()=>{ if(isVideoMode()){ ytSeek(parseFloat(seekBar.value), true); ytResume.armed = true; } });
 
   document.getElementById('backBtn').addEventListener('click', ()=>{ mediaSeek(Math.max(0, getCurrentTime()-5)); });
   document.getElementById('fwdBtn').addEventListener('click', ()=>{ mediaSeek(Math.min(getDuration()||1e9, getCurrentTime()+5)); });
@@ -3455,6 +3515,9 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   function selectTrack(i, autoPlay){
     if(isVideoMode()) switchMode('podcast');
     const t = playlist[i];
+    // Save the spot of whatever was playing, then pick up the saved spot of this track.
+    resumeRecord(audioResume, audio.currentTime, audio.duration, true);
+    audioResume.key = 'p:'+t.id; audioResume.armed = false; audioResume.pos = resumeGet(audioResume.key);
     currentTrackIdx = i;
     if(t.audioFile){ loadAudioFile(t.audioFile, autoPlay); }
     else { showToast('Bu parça için ses dosyası seçilmedi'); }
@@ -4243,6 +4306,9 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   function selectVideoTrack(i, autoPlay){
     const t = videoPlaylist[i];
     if(!t || !t.ytId){ showToast('Bu kayıt için YouTube linki yok'); return; }
+    if(ytReady) resumeRecord(ytResume, ytNow(), ytDur(), true);
+    ytResume.key = 'v:'+t.ytId; ytResume.armed = false;
+    const startAt = resumeGet(ytResume.key);
     currentVideoIdx = i;
     videoReady = true;
     videoEmpty.style.display = 'none';
@@ -4252,7 +4318,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     currentLineIdx = -1;
     autoFitVideoSize();
     if(!isVideoMode()) switchMode('video'); else renderLyrics();
-    ytLoad(t.ytId, !!autoPlay); // after the mode switch so the player is created in a visible pane
+    ytLoad(t.ytId, !!autoPlay, startAt); // after the mode switch so the player is created in a visible pane
     updateVideoStatusHint();
     updateNowPlaying();
     updateMediaSession({title: t.title});
