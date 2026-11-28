@@ -2294,7 +2294,14 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     buildWindow(Math.max(0, currentLineIdx));
   }
 
+  // Jumping to a line starts playback slightly BEFORE its timestamp. Seeks (especially
+  // YouTube's and compressed audio's) land a little late and LRC stamps are often a hair
+  // after the first word begins, so seeking exactly to the stamp clipped the first word.
+  // Lines are treated as "active" LINE_BIAS early so the highlight/prev/next logic stays
+  // consistent with where a seek actually lands.
+  const LINE_LEAD = 0.30, LINE_BIAS = 0.35;
   function findLineIndex(t){
+    t += LINE_BIAS;
     const lines = activeLrcLines();
     let lo=0, hi=lines.length-1, ans=-1;
     while(lo<=hi){
@@ -2329,7 +2336,7 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
   // not reliable on every browser (backward seeks especially can delay it), so we force
   // the active-line/scroll update immediately instead of waiting for the browser.
   function seekToLine(ln, autoPlay){
-    mediaSeek(ln.time);
+    mediaSeek(Math.max(0, ln.time - LINE_LEAD));
     if(autoPlay && isPaused()){ safePlay(); }
     currentLineIdx = -1;
     updateActiveLine();
