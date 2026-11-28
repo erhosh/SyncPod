@@ -1364,13 +1364,17 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
     });
   }
 
-  function ytEnsurePlayer(initialId){
+  let ytInitStart = null; // start position the player was CREATED with (null once consumed)
+  function ytEnsurePlayer(initialId, startAt){
     if(ytReady) return Promise.resolve();
     if(ytCreating) return ytCreating;
     ytCreating = ytApiLoad().then(()=> new Promise(resolve=>{
       ytReadyQueue.unshift(resolve);
       const vars = {playsinline:1, controls:0, disablekb:1, fs:0, rel:0, iv_load_policy:3, modestbranding:1, enablejsapi:1, cc_load_policy:(appSettings.ytCC?1:0)};
       if(/^https?:$/.test(location.protocol)) vars.origin = location.origin;
+      // Create the player already positioned at the saved spot: no flash of the video's
+      // beginning, no follow-up seek (a seek on a cued player also starts playback).
+      if(startAt > 0){ vars.start = Math.floor(startAt); ytInitStart = Math.floor(startAt); }
       ytPlayer = new YT.Player('ytPlayer', {
         videoId: initialId,
         playerVars: vars,
@@ -1393,11 +1397,12 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
 
   function ytLoad(videoId, autoPlay, startAt){
     ytCurrentId = videoId;
-    ytEnsurePlayer(videoId).then(()=>{
+    ytEnsurePlayer(videoId, startAt).then(()=>{
       if(ytCurrentId !== videoId) return; // a newer pick superseded this one
       let cur = '';
       try{ cur = (ytPlayer.getVideoData() || {}).video_id || ''; }catch(err){}
       if(cur !== videoId){
+        ytInitStart = null;
         const o = {videoId, startSeconds: startAt || 0};
         if(autoPlay) ytPlayer.loadVideoById(o); else ytPlayer.cueVideoById(o);
       }else{
@@ -1405,8 +1410,13 @@ window.__fbLoadFallback = function(failedScriptEl, primaryName){
         // saved spot if it hasn't started yet — never yank a video that is already running.
         let st = -1;
         try{ st = ytPlayer.getPlayerState(); }catch(err){}
-        if(startAt && (st === -1 || st === YT_STATE.CUED)) ytSeek(startAt, true);
-        if(autoPlay) ytPlayer.playVideo();
+        const already = (ytInitStart !== null && ytInitStart === Math.floor(startAt || 0));
+        ytInitStart = null;
+        if(startAt && !already && (st === -1 || st === YT_STATE.CUED)){
+          // re-cue at the saved spot (stays paused) instead of seekTo(), which would start playback
+          const o = {videoId, startSeconds: startAt};
+          if(autoPlay) ytPlayer.loadVideoById(o); else ytPlayer.cueVideoById(o);
+        }else if(autoPlay) ytPlayer.playVideo();
       }
     }).catch(()=>{});
   }
